@@ -7,6 +7,11 @@ on:
         description: 'Version number (e.g., 1.0.0)'
         required: true
         type: string
+      create_release:
+        description: 'Create GitHub Release'
+        required: false
+        type: boolean
+        default: true
   push:
     tags:
       - 'v*'
@@ -45,6 +50,76 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
+    - name: Create FoLive.spec if missing
+      shell: powershell
+      run: |
+        if (-not (Test-Path "FoLive.spec")) {
+          Write-Host "Creating FoLive.spec file..."
+          $lines = @(
+            "# -*- mode: python ; coding: utf-8 -*-",
+            "",
+            "block_cipher = None",
+            "",
+            "a = Analysis(",
+            "    ['run.py'],",
+            "    pathex=[],",
+            "    binaries=[],",
+            "    datas=[",
+            "        ('env.example', '.'),",
+            "    ],",
+            "    hiddenimports=[",
+            "        'tkinter',",
+            "        'tkinter.ttk',",
+            "        'tkinter.filedialog',",
+            "        'tkinter.messagebox',",
+            "        'tkinter.scrolledtext',",
+            "        'yt_dlp',",
+            "        'pydub',",
+            "        'dotenv',",
+            "        'requests',",
+            "        'psutil',",
+            "    ],",
+            "    hookspath=[],",
+            "    hooksconfig={},",
+            "    runtime_hooks=[],",
+            "    excludes=[],",
+            "    win_no_prefer_redirects=False,",
+            "    win_private_assemblies=False,",
+            "    cipher=block_cipher,",
+            "    noarchive=False,",
+            ")",
+            "",
+            "pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)",
+            "",
+            "exe = EXE(",
+            "    pyz,",
+            "    a.scripts,",
+            "    a.binaries,",
+            "    a.zipfiles,",
+            "    a.datas,",
+            "    [],",
+            "    name='FoLive',",
+            "    debug=False,",
+            "    bootloader_ignore_signals=False,",
+            "    strip=False,",
+            "    upx=True,",
+            "    upx_exclude=[],",
+            "    runtime_tmpdir=None,",
+            "    console=False,",
+            "    icon=None,",
+            "    disable_windowed_traceback=False,",
+            "    argv_emulation=False,",
+            "    target_arch=None,",
+            "    codesign_identity=None,",
+            "    entitlements_file=None,",
+            ")"
+          )
+          $lines | Out-File -FilePath "FoLive.spec" -Encoding utf8
+          Write-Host "[OK] FoLive.spec created"
+        } else {
+          Write-Host "[OK] FoLive.spec already exists"
+        }
+    
     - name: Build executable
       shell: powershell
       run: |
@@ -55,19 +130,11 @@ jobs:
           exit 1
         }
         if (Test-Path "dist\FoLive.exe") {
-          Write-Host "[OK] Build successful!"
+          $fileSize = (Get-Item "dist\FoLive.exe").Length / 1MB
+          Write-Host "[OK] Build successful! File size: $([math]::Round($fileSize, 2)) MB"
         } else {
           Write-Host "[ERROR] FoLive.exe not found!"
           exit 1
-        }
-    
-    - name: Build installer bundle
-      shell: powershell
-      run: |
-        Write-Host "Building installer bundle..."
-        python build_installer.py
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "[WARNING] Installer build failed, but continuing..."
         }
     
     - name: Prepare release files
@@ -87,7 +154,7 @@ jobs:
           exit 1
         }
         
-        # Copy executable to release folder (MUST BE FIRST FILE)
+        # Copy executable to release folder
         Copy-Item "dist\FoLive.exe" "release\FoLive.exe" -Force
         $fileSize = (Get-Item "release\FoLive.exe").Length / 1MB
         Write-Host "[OK] Copied FoLive.exe ($([math]::Round($fileSize, 2)) MB)"
@@ -150,6 +217,7 @@ jobs:
         }
     
     - name: Create GitHub Release
+      if: github.event.inputs.create_release != 'false'
       uses: softprops/action-gh-release@v2
       with:
         files: |
@@ -160,9 +228,10 @@ jobs:
           release/env.example
         fail_on_unmatched_files: false
         generate_release_notes: false
-        name: Release ${{ github.ref_name || inputs.version }}
+        tag_name: ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
+        name: Release ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
         body: |
-          ## FoLive Release ${{ github.ref_name || inputs.version }}
+          ## FoLive Release ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
           
           ### 📦 Download
           
@@ -196,4 +265,3 @@ jobs:
         prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-

@@ -236,6 +236,15 @@ Nếu có vấn đề hoặc câu hỏi, vui lòng tạo issue trên GitHub.
 ![CI](https://github.com/YOUR_USERNAME/FoLive/workflows/CI%2FCD%20Pipeline/badge.svg)
 ![Tests](https://github.com/YOUR_USERNAME/FoLive/workflows/Quick%20Test/badge.svg)
 
+## 📦 Download Release
+
+**Tải file .exe mới nhất:**
+- Vào [Releases](https://github.com/YOUR_USERNAME/FoLive/releases)
+- Download file **FoLive.exe**
+- Hoặc chạy workflow **Release Build** trong Actions để tự động build và tạo release
+
+**Xem hướng dẫn chi tiết:** [HOW_TO_RELEASE.md](HOW_TO_RELEASE.md)
+
 ---
 
 **FoLive** - Công cụ livestream 24/7 mạnh mẽ và dễ sử dụng! 🚀
