@@ -75,42 +75,43 @@ jobs:
       run: |
         New-Item -ItemType Directory -Force -Path release | Out-Null
         
-        # Copy executable
-        if (Test-Path "dist\FoLive.exe") {
-          Copy-Item "dist\FoLive.exe" "release\" -Force
-          Write-Host "Copied FoLive.exe"
+        # Verify executable exists
+        if (-not (Test-Path "dist\FoLive.exe")) {
+          Write-Host "[ERROR] FoLive.exe not found in dist folder!"
+          exit 1
         }
+        
+        # Copy executable to release folder
+        Copy-Item "dist\FoLive.exe" "release\FoLive.exe" -Force
+        Write-Host "[OK] Copied FoLive.exe"
+        
+        # Get file size
+        $fileSize = (Get-Item "dist\FoLive.exe").Length / 1MB
+        Write-Host "File size: $([math]::Round($fileSize, 2)) MB"
         
         # Copy installer
         if (Test-Path "installer\install.bat") {
-          Copy-Item "installer\install.bat" "release\" -Force
-          Write-Host "Copied install.bat"
-        }
-        
-        # Copy bundle if exists
-        if (Test-Path "FoLive-Windows-Bundle") {
-          Copy-Item "FoLive-Windows-Bundle" "release\" -Recurse -Force
-          Write-Host "Copied bundle"
-        }
-        
-        # Copy zip if exists
-        Get-ChildItem -Filter "*.zip" | ForEach-Object {
-          Copy-Item $_.FullName "release\" -Force
-          Write-Host "Copied $($_.Name)"
+          Copy-Item "installer\install.bat" "release\install.bat" -Force
+          Write-Host "[OK] Copied install.bat"
         }
         
         # Copy docs
-        Copy-Item "README.md" "release\" -Force -ErrorAction SilentlyContinue
-        Copy-Item "INSTALL.md" "release\" -Force -ErrorAction SilentlyContinue
-        Copy-Item "env.example" "release\" -Force -ErrorAction SilentlyContinue
+        Copy-Item "README.md" "release\README.md" -Force -ErrorAction SilentlyContinue
+        Copy-Item "INSTALL.md" "release\INSTALL.md" -Force -ErrorAction SilentlyContinue
+        Copy-Item "env.example" "release\env.example" -Force -ErrorAction SilentlyContinue
         
-        Write-Host "Release files prepared"
+        Write-Host "[OK] Release files prepared"
     
     - name: Upload release artifacts
       uses: actions/upload-artifact@v4
       with:
         name: release-files
-        path: release/*
+        path: |
+          release/FoLive.exe
+          release/install.bat
+          release/README.md
+          release/INSTALL.md
+          release/env.example
         retention-days: 30
     
     - name: Create GitHub Release
@@ -121,19 +122,21 @@ jobs:
         body: |
           ## FoLive Release ${{ github.ref_name || inputs.version }}
           
-          ### 📦 Installation Package
+          ### 📦 Download
           
-          **Windows Desktop Application:**
-          - `FoLive.exe` - Standalone executable (no Python required)
-          - `install.bat` - Auto installer
-          - `FoLive-Windows-Bundle/` - Complete bundle
+          **Tải ngay file .exe:**
+          - **[FoLive.exe](FoLive.exe)** - Standalone executable (no Python required)
+          - `install.bat` - Auto installer (optional)
           
           ### 🚀 Quick Start
           
-          **Windows:**
-          1. Download và giải nén
-          2. Chạy `install.bat` để cài đặt tự động
-          3. Hoặc chạy trực tiếp `FoLive.exe`
+          **Cách 1: Chạy trực tiếp (Khuyến nghị)**
+          1. Download file **FoLive.exe**
+          2. Double-click để chạy ngay!
+          
+          **Cách 2: Cài đặt tự động**
+          1. Download cả `FoLive.exe` và `install.bat`
+          2. Chạy `install.bat` để cài đặt vào hệ thống
           
           ### ✨ Features
           - ✅ Windows Desktop GUI Application
