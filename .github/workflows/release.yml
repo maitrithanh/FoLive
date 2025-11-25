@@ -43,21 +43,20 @@ jobs:
         python build_installer.py
     
     - name: Prepare release files
+      shell: cmd
       run: |
-        mkdir -p release
-        # Copy bundles
-        cp -r FoLive-*-Bundle release/ 2>/dev/null || true
-        cp *.tar.gz release/ 2>/dev/null || true
-        cp *.zip release/ 2>/dev/null || true
-        # Copy installer scripts
-        cp installer/*.sh release/ 2>/dev/null || true
-        cp installer/*.bat release/ 2>/dev/null || true
-        # Copy standalone executable
-        cp dist/FoLive release/ 2>/dev/null || true
-        cp dist/FoLive.exe release/ 2>/dev/null || true
-        # Copy docs
-        cp README.md release/
-        cp env.example release/
+        if not exist release mkdir release
+        REM Copy bundles
+        if exist "FoLive-Windows-Bundle" xcopy /E /I /Y "FoLive-Windows-Bundle" "release\FoLive-Windows-Bundle\" 2>nul
+        if exist "*.zip" copy /Y "*.zip" "release\" 2>nul
+        REM Copy installer scripts
+        if exist "installer\*.bat" copy /Y "installer\*.bat" "release\" 2>nul
+        REM Copy standalone executable
+        if exist "dist\FoLive.exe" copy /Y "dist\FoLive.exe" "release\" 2>nul
+        REM Copy docs
+        copy /Y "README.md" "release\" 2>nul
+        copy /Y "env.example" "release\" 2>nul
+        copy /Y "INSTALL.md" "release\" 2>nul
     
     - name: Upload release artifacts
       uses: actions/upload-artifact@v3
