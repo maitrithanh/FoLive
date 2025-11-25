@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv
+
+# Environment
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temp files
+temp/
+output/
+*.log
+
+# Build files
+build/
+dist/
+*.spec
+*.pyc
+__pycache__/
+*.egg-info/
+
+# Installer bundles
+FoLive-*-Bundle/
+*.tar.gz
+*.zip
+install_*.sh
+install_*.bat
+
+# OS
+.DS_Store
+Thumbs.db
+
