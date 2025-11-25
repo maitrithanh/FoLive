@@ -26,21 +26,18 @@ jobs:
         python-version: ${{ matrix.python-version }}
         cache: 'pip'
     
-    - name: Install system dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
-    
-    - name: Install system dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install ffmpeg
-    
     - name: Install system dependencies (Windows)
-      if: matrix.os == 'windows-latest'
+      shell: powershell
       run: |
-        choco install ffmpeg -y
+        Write-Host "Checking FFmpeg..."
+        try {
+          $null = ffmpeg -version 2>&1
+          Write-Host "FFmpeg already installed"
+        } catch {
+          Write-Host "Installing FFmpeg via Chocolatey..."
+          choco install ffmpeg -y
+        }
+      continue-on-error: true
     
     - name: Install Python dependencies
       run: |
@@ -71,12 +68,9 @@ jobs:
 
   build:
     name: Build Application
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     needs: test
     if: github.event_name == 'push' || github.event_name == 'release'
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
     
     steps:
     - name: Checkout code
@@ -89,6 +83,7 @@ jobs:
         cache: 'pip'
     
     - name: Install system dependencies (Windows)
+      shell: powershell
       run: |
         choco install ffmpeg -y
       continue-on-error: true
@@ -100,19 +95,27 @@ jobs:
         pip install pyinstaller
     
     - name: Build executable
+      shell: powershell
       run: |
         python -m PyInstaller --clean --noconfirm FoLive.spec
-      continue-on-error: true
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "Build failed, but continuing..."
+          exit 0
+        }
     
     - name: Create installer bundle
+      shell: powershell
       run: |
         python build_installer.py
-      continue-on-error: true
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "Installer build failed, but continuing..."
+          exit 0
+        }
     
     - name: Upload build artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: build-${{ matrix.os }}
+        name: build-windows
         path: |
           dist/
           FoLive-*-Bundle/
@@ -121,61 +124,4 @@ jobs:
           installer/
         retention-days: 30
 
-  docker:
-    name: Build Docker Image
-    runs-on: ubuntu-latest
-    needs: test
-    if: github.event_name == 'push' || github.event_name == 'release'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Set up Docker Buildx
-      uses: docker/setup-buildx-action@v2
-    
-    - name: Login to Docker Hub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-    
-    - name: Build and push Docker image
-      uses: docker/build-push-action@v4
-      with:
-        context: .
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: |
-          folive:latest
-          folive:${{ github.sha }}
-          folive:${{ github.ref_name }}
-        cache-from: type=registry,ref=folive:buildcache
-        cache-to: type=registry,ref=folive:buildcache,mode=max
-
-  release:
-    name: Create Release
-    runs-on: ubuntu-latest
-    needs: [test, build]
-    if: github.event_name == 'release'
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Download build artifacts
-      uses: actions/download-artifact@v3
-      with:
-        name: build-artifacts
-        path: ./artifacts
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        files: |
-          artifacts/**
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

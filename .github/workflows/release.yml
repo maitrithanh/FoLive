@@ -27,8 +27,16 @@ jobs:
         cache: 'pip'
     
     - name: Install system dependencies
+      shell: powershell
       run: |
-        choco install ffmpeg -y
+        Write-Host "Checking FFmpeg..."
+        try {
+          $null = ffmpeg -version 2>&1
+          Write-Host "FFmpeg already installed"
+        } catch {
+          Write-Host "Installing FFmpeg..."
+          choco install ffmpeg -y
+        }
       continue-on-error: true
     
     - name: Install Python dependencies
@@ -37,26 +45,51 @@ jobs:
         pip install -r requirements.txt
         pip install pyinstaller
     
-    - name: Build executable and installer
+    - name: Build executable
       run: |
         python -m PyInstaller --clean --noconfirm FoLive.spec
+      continue-on-error: false
+    
+    - name: Build installer bundle
+      run: |
         python build_installer.py
+      continue-on-error: true
     
     - name: Prepare release files
-      shell: cmd
+      shell: powershell
       run: |
-        if not exist release mkdir release
-        REM Copy bundles
-        if exist "FoLive-Windows-Bundle" xcopy /E /I /Y "FoLive-Windows-Bundle" "release\FoLive-Windows-Bundle\" 2>nul
-        if exist "*.zip" copy /Y "*.zip" "release\" 2>nul
-        REM Copy installer scripts
-        if exist "installer\*.bat" copy /Y "installer\*.bat" "release\" 2>nul
-        REM Copy standalone executable
-        if exist "dist\FoLive.exe" copy /Y "dist\FoLive.exe" "release\" 2>nul
-        REM Copy docs
-        copy /Y "README.md" "release\" 2>nul
-        copy /Y "env.example" "release\" 2>nul
-        copy /Y "INSTALL.md" "release\" 2>nul
+        New-Item -ItemType Directory -Force -Path release | Out-Null
+        
+        # Copy executable
+        if (Test-Path "dist\FoLive.exe") {
+          Copy-Item "dist\FoLive.exe" "release\" -Force
+          Write-Host "Copied FoLive.exe"
+        }
+        
+        # Copy installer
+        if (Test-Path "installer\install.bat") {
+          Copy-Item "installer\install.bat" "release\" -Force
+          Write-Host "Copied install.bat"
+        }
+        
+        # Copy bundle if exists
+        if (Test-Path "FoLive-Windows-Bundle") {
+          Copy-Item "FoLive-Windows-Bundle" "release\" -Recurse -Force
+          Write-Host "Copied bundle"
+        }
+        
+        # Copy zip if exists
+        Get-ChildItem -Filter "*.zip" | ForEach-Object {
+          Copy-Item $_.FullName "release\" -Force
+          Write-Host "Copied $($_.Name)"
+        }
+        
+        # Copy docs
+        Copy-Item "README.md" "release\" -Force -ErrorAction SilentlyContinue
+        Copy-Item "INSTALL.md" "release\" -Force -ErrorAction SilentlyContinue
+        Copy-Item "env.example" "release\" -Force -ErrorAction SilentlyContinue
+        
+        Write-Host "Release files prepared"
     
     - name: Upload release artifacts
       uses: actions/upload-artifact@v3

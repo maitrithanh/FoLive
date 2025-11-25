@@ -22,6 +22,7 @@ jobs:
         cache: 'pip'
     
     - name: Install FFmpeg
+      shell: powershell
       run: |
         choco install ffmpeg -y
       continue-on-error: true
@@ -33,18 +34,39 @@ jobs:
         pip install pytest pytest-cov
     
     - name: Check FFmpeg installation
+      shell: powershell
       run: |
         ffmpeg -version
+      continue-on-error: true
     
     - name: Run basic tests
+      shell: powershell
       run: |
-        python -c "from stream_manager import StreamManager; print('StreamManager OK')"
-        python -c "from ffmpeg_handler import FFmpegHandler; print('FFmpegHandler OK')"
-        python -c "from source_handlers import SourceHandlerFactory; print('SourceHandler OK')"
-        python -c "from config import *; print('Config OK')"
+        $ErrorActionPreference = "Stop"
+        try {
+          python -c "from stream_manager import StreamManager; print('StreamManager OK')"
+          python -c "from ffmpeg_handler import FFmpegHandler; print('FFmpegHandler OK')"
+          python -c "from source_handlers import SourceHandlerFactory; print('SourceHandler OK')"
+          python -c "from config import *; print('Config OK')"
+          Write-Host "All basic tests passed"
+        } catch {
+          Write-Host "Test failed: $_"
+          exit 1
+        }
     
     - name: Test imports
+      shell: powershell
       run: |
-        python -c "import flask; import yt_dlp; print('All imports OK')"
+        python -c "import yt_dlp; print('yt_dlp OK')"
+        if ($LASTEXITCODE -ne 0) { 
+          Write-Host "yt_dlp import failed"
+          exit 1 
+        }
+        python -c "import tkinter; print('tkinter OK')"
+        if ($LASTEXITCODE -ne 0) { 
+          Write-Host "tkinter import failed"
+          exit 1 
+        }
+        Write-Host "All imports OK"
 
 

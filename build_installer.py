@@ -441,28 +441,36 @@ def main():
         install_pyinstaller()
     
     # Build executable
-    build_executable()
+    if not build_executable():
+        print("❌ Không thể build executable, dừng lại")
+        sys.exit(1)
     
     # Tạo installer scripts
-    create_installer_script()
+    try:
+        create_installer_script()
+    except Exception as e:
+        print(f"⚠️  Lỗi tạo installer script: {e}")
     
     # Tạo bundle
-    archive = create_bundle()
-    
-    print()
-    print("=" * 50)
-    print("✅ Hoàn tất!")
-    print("=" * 50)
-    print(f"📦 Bundle: {archive}")
-    print()
-    print("🚀 Để cài đặt:")
-    system = platform.system()
-    if system == "Darwin":
-        print("   ./install_macos.sh")
-    elif system == "Windows":
-        print("   install_windows.bat")
-    else:
-        print("   sudo bash install_linux.sh")
+    try:
+        archive = create_bundle()
+        print()
+        print("=" * 50)
+        print("✅ Hoàn tất!")
+        print("=" * 50)
+        if archive:
+            print(f"📦 Bundle: {archive}")
+        print()
+        print("🚀 Để cài đặt:")
+        system = platform.system()
+        if system == "Windows":
+            print("   install.bat")
+            print("   hoặc chạy trực tiếp: dist\\FoLive.exe")
+        else:
+            print("   Ứng dụng này chỉ hỗ trợ Windows")
+    except Exception as e:
+        print(f"⚠️  Lỗi tạo bundle: {e}")
+        print("✅ Executable đã được build tại: dist\\FoLive.exe")
 
 if __name__ == '__main__':
     main()
