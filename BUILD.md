@@ -127,3 +127,4 @@ codesign --sign "Developer ID" dist/FoLive
 signtool sign /f certificate.pfx dist/FoLive.exe
 ```
 
+

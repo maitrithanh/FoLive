@@ -26,11 +26,12 @@ Phần mềm livestream đa luồng lên YouTube với nhiều tính năng mạn
 - ✅ **Livestream song song** nhiều luồng
 - ✅ Hiển thị **tình trạng luồng** real-time
 
-### 🖥️ Giao diện quản lý
-- ✅ Giao diện web **trực quan, dễ sử dụng**
+### 🖥️ Giao diện Desktop
+- ✅ Giao diện Windows Desktop **trực quan, dễ sử dụng**
 - ✅ Quản lý nhiều stream cùng lúc
 - ✅ Theo dõi trạng thái real-time
 - ✅ Cấu hình nâng cao cho từng stream
+- ✅ Không cần web browser
 
 ## 🚀 Cài đặt
 
@@ -38,34 +39,21 @@ Phần mềm livestream đa luồng lên YouTube với nhiều tính năng mạn
 
 **Download từ GitHub Releases:**
 1. Vào [Releases](https://github.com/YOUR_USERNAME/FoLive/releases)
-2. Download bundle phù hợp với hệ điều hành
-3. Giải nén và chạy installer
-
-**Linux/macOS:**
-```bash
-chmod +x install.sh
-./install.sh
-folive
-```
+2. Download `FoLive-Windows-*.zip`
+3. Giải nén và chạy `install.bat`
 
 **Windows:**
 ```cmd
+# Giải nén file zip
+# Chạy installer
 install.bat
-folive
+
+# Hoặc chạy trực tiếp
+FoLive.exe
 ```
 
 ✅ **Không cần cài Python!** Tất cả dependencies đã được bundle sẵn.
-
-### 🐳 Sử dụng Docker
-
-```bash
-# Build và chạy với Docker Compose
-docker-compose up -d
-
-# Hoặc build Docker image
-docker build -t folive .
-docker run -p 5000:5000 folive
-```
+✅ **Windows Desktop Application** - Chạy như ứng dụng thông thường
 
 ### 📦 Build từ source (Development)
 
@@ -82,17 +70,15 @@ python build_installer.py
 
 ### Yêu cầu hệ thống (chỉ khi build từ source)
 
-1. **Python 3.8+**
-2. **FFmpeg** - Cài đặt:
-   ```bash
-   # macOS
-   brew install ffmpeg
-   
-   # Ubuntu/Debian
-   sudo apt-get install ffmpeg
-   
+1. **Windows 10/11**
+2. **Python 3.8+**
+3. **FFmpeg** - Cài đặt:
+   ```cmd
    # Windows
-   # Download từ https://ffmpeg.org/download.html
+   winget install ffmpeg
+   # hoặc
+   choco install ffmpeg
+   # hoặc tải từ https://ffmpeg.org/download.html
    ```
 
 ### Cài đặt dependencies

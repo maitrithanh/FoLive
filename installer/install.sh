@@ -178,3 +178,4 @@ echo "💡 Tip: Nếu lệnh 'folive' không hoạt động, chạy:"
 echo "   source ~/.bashrc  # hoặc ~/.zshrc"
 echo ""
 
+

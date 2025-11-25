@@ -10,11 +10,10 @@ on:
 
 jobs:
   test:
-    name: Test on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
+    name: Test on Windows
+    runs-on: windows-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ['3.8', '3.9', '3.10', '3.11']
     
     steps:
@@ -63,7 +62,7 @@ jobs:
         pytest tests/ -v --cov=. --cov-report=xml --cov-report=html || true
     
     - name: Upload coverage reports
-      if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.10'
+      if: matrix.python-version == '3.10'
       uses: codecov/codecov-action@v3
       with:
         file: ./coverage.xml
@@ -89,19 +88,7 @@ jobs:
         python-version: '3.10'
         cache: 'pip'
     
-    - name: Install system dependencies (Ubuntu)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
-    
-    - name: Install system dependencies (macOS)
-      if: matrix.os == 'macos-latest'
-      run: |
-        brew install ffmpeg
-    
     - name: Install system dependencies (Windows)
-      if: matrix.os == 'windows-latest'
       run: |
         choco install ffmpeg -y
       continue-on-error: true

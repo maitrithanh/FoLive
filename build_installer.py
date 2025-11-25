@@ -36,20 +36,19 @@ a = Analysis(
     pathex=[],
     binaries=[],
     datas=[
-        ('templates', 'templates'),
         ('env.example', '.'),
     ],
     hiddenimports=[
-        'flask',
-        'flask_cors',
+        'tkinter',
+        'tkinter.ttk',
+        'tkinter.filedialog',
+        'tkinter.messagebox',
+        'tkinter.scrolledtext',
         'yt_dlp',
         'pydub',
         'dotenv',
         'requests',
         'psutil',
-        'cv2',
-        'numpy',
-        'PIL',
     ],
     hookspath=[],
     hooksconfig={},
@@ -467,4 +466,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
 

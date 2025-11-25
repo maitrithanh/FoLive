@@ -9,7 +9,7 @@ on:
 jobs:
   quick-test:
     name: Quick Test
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     
     steps:
     - name: Checkout code
@@ -23,8 +23,8 @@ jobs:
     
     - name: Install FFmpeg
       run: |
-        sudo apt-get update
-        sudo apt-get install -y ffmpeg
+        choco install ffmpeg -y
+      continue-on-error: true
     
     - name: Install dependencies
       run: |
@@ -46,4 +46,5 @@ jobs:
     - name: Test imports
       run: |
         python -c "import flask; import yt_dlp; print('All imports OK')"
+
 

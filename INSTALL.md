@@ -126,3 +126,4 @@ rmdir /s %USERPROFILE%\.folive
 - File cấu hình: `~/.folive/app/.env`
 - Logs: Kiểm tra terminal output
 
+

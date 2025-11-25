@@ -27,3 +27,4 @@ MAX_CONCURRENT_STREAMS = int(os.getenv('MAX_CONCURRENT_STREAMS', '10'))
 # Supported video formats
 SUPPORTED_FORMATS = ['.mp4', '.mov', '.mkv', '.avi', '.flv', '.webm']
 
+
