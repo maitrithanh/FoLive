@@ -34,7 +34,7 @@ jobs:
         Write-Host "Formatting code..."
         black . --quiet
         if ($LASTEXITCODE -eq 0) {
-          Write-Host "✓ Code formatted"
+          Write-Host "[OK] Code formatted"
         }
     
     - name: Check for changes

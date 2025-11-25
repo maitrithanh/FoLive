@@ -51,9 +51,9 @@ jobs:
         $files = @("run.py", "gui.py", "FoLive.spec", "stream_manager.py", "ffmpeg_handler.py")
         foreach ($file in $files) {
           if (Test-Path $file) {
-            Write-Host "✓ $file exists"
+            Write-Host "[OK] $file exists"
           } else {
-            Write-Host "✗ $file NOT FOUND"
+            Write-Host "[ERROR] $file NOT FOUND"
             exit 1
           }
         }
@@ -65,10 +65,10 @@ jobs:
         python -m PyInstaller --clean --noconfirm FoLive.spec
         
         if (Test-Path "dist\FoLive.exe") {
-          Write-Host "✓ Build successful! File size:"
+          Write-Host "[OK] Build successful! File size:"
           (Get-Item "dist\FoLive.exe").Length / 1MB | ForEach-Object { Write-Host "  $_ MB" }
         } else {
-          Write-Host "✗ Build failed - FoLive.exe not found"
+          Write-Host "[ERROR] Build failed - FoLive.exe not found"
           exit 1
         }
     

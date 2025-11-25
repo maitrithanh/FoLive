@@ -46,14 +46,29 @@ jobs:
         pip install pyinstaller
     
     - name: Build executable
+      shell: powershell
       run: |
+        Write-Host "Building executable..."
         python -m PyInstaller --clean --noconfirm FoLive.spec
-      continue-on-error: false
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "[ERROR] Build failed!"
+          exit 1
+        }
+        if (Test-Path "dist\FoLive.exe") {
+          Write-Host "[OK] Build successful!"
+        } else {
+          Write-Host "[ERROR] FoLive.exe not found!"
+          exit 1
+        }
     
     - name: Build installer bundle
+      shell: powershell
       run: |
+        Write-Host "Building installer bundle..."
         python build_installer.py
-      continue-on-error: true
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "[WARNING] Installer build failed, but continuing..."
+        }
     
     - name: Prepare release files
       shell: powershell

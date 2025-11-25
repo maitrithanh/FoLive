@@ -56,9 +56,9 @@ jobs:
         Write-Host "Formatting code with black..."
         black . --quiet
         if ($LASTEXITCODE -eq 0) {
-          Write-Host "✓ Code formatted successfully"
+          Write-Host "[OK] Code formatted successfully"
         } else {
-          Write-Host "⚠️ Black formatting completed with warnings"
+          Write-Host "[WARNING] Black formatting completed with warnings"
         }
       continue-on-error: true
     
@@ -68,11 +68,11 @@ jobs:
         Write-Host "Checking code formatting..."
         black --check . --quiet
         if ($LASTEXITCODE -ne 0) {
-          Write-Host "⚠️ Some files still need formatting"
+          Write-Host "[WARNING] Some files still need formatting"
           Write-Host "This is a warning, not blocking the build"
           exit 0
         } else {
-          Write-Host "✓ All files are properly formatted"
+          Write-Host "[OK] All files are properly formatted"
         }
     
     - name: Run tests
