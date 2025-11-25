@@ -73,51 +73,93 @@ jobs:
     - name: Prepare release files
       shell: powershell
       run: |
+        # Clean and create release directory
+        if (Test-Path "release") {
+          Remove-Item "release" -Recurse -Force
+        }
         New-Item -ItemType Directory -Force -Path release | Out-Null
         
         # Verify executable exists
         if (-not (Test-Path "dist\FoLive.exe")) {
           Write-Host "[ERROR] FoLive.exe not found in dist folder!"
+          Write-Host "Checking dist folder contents:"
+          Get-ChildItem "dist" | ForEach-Object { Write-Host "  $($_.Name)" }
           exit 1
         }
         
-        # Copy executable to release folder
+        # Copy executable to release folder (MUST BE FIRST FILE)
         Copy-Item "dist\FoLive.exe" "release\FoLive.exe" -Force
-        Write-Host "[OK] Copied FoLive.exe"
-        
-        # Get file size
-        $fileSize = (Get-Item "dist\FoLive.exe").Length / 1MB
-        Write-Host "File size: $([math]::Round($fileSize, 2)) MB"
+        $fileSize = (Get-Item "release\FoLive.exe").Length / 1MB
+        Write-Host "[OK] Copied FoLive.exe ($([math]::Round($fileSize, 2)) MB)"
         
         # Copy installer
         if (Test-Path "installer\install.bat") {
           Copy-Item "installer\install.bat" "release\install.bat" -Force
           Write-Host "[OK] Copied install.bat"
+        } else {
+          Write-Host "[WARNING] install.bat not found"
         }
         
         # Copy docs
-        Copy-Item "README.md" "release\README.md" -Force -ErrorAction SilentlyContinue
-        Copy-Item "INSTALL.md" "release\INSTALL.md" -Force -ErrorAction SilentlyContinue
-        Copy-Item "env.example" "release\env.example" -Force -ErrorAction SilentlyContinue
+        if (Test-Path "README.md") {
+          Copy-Item "README.md" "release\README.md" -Force
+          Write-Host "[OK] Copied README.md"
+        }
+        if (Test-Path "INSTALL.md") {
+          Copy-Item "INSTALL.md" "release\INSTALL.md" -Force
+          Write-Host "[OK] Copied INSTALL.md"
+        }
+        if (Test-Path "env.example") {
+          Copy-Item "env.example" "release\env.example" -Force
+          Write-Host "[OK] Copied env.example"
+        }
         
+        Write-Host ""
+        Write-Host "=== Release files summary ==="
+        Get-ChildItem -Path release | ForEach-Object {
+          $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1MB, 2)) MB" }
+          Write-Host "  $($_.Name) - $size"
+        }
         Write-Host "[OK] Release files prepared"
     
-    - name: Upload release artifacts
+    - name: Upload release artifacts (backup)
       uses: actions/upload-artifact@v4
       with:
-        name: release-files
-        path: |
+        name: release-files-backup
+        path: release/*
+        retention-days: 30
+    
+    - name: Verify files before release
+      shell: powershell
+      run: |
+        Write-Host "=== Verifying files for release ==="
+        $requiredFiles = @("release\FoLive.exe")
+        foreach ($file in $requiredFiles) {
+          if (Test-Path $file) {
+            $size = (Get-Item $file).Length / 1MB
+            Write-Host "[OK] $file exists ($([math]::Round($size, 2)) MB)"
+          } else {
+            Write-Host "[ERROR] $file NOT FOUND!"
+            exit 1
+          }
+        }
+        Write-Host ""
+        Write-Host "All files in release folder:"
+        Get-ChildItem -Path release | ForEach-Object {
+          Write-Host "  - $($_.Name)"
+        }
+    
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
           release/FoLive.exe
           release/install.bat
           release/README.md
           release/INSTALL.md
           release/env.example
-        retention-days: 30
-    
-    - name: Create GitHub Release
-      uses: softprops/action-gh-release@v2
-      with:
-        files: release/*
+        fail_on_unmatched_files: false
+        generate_release_notes: false
         name: Release ${{ github.ref_name || inputs.version }}
         body: |
           ## FoLive Release ${{ github.ref_name || inputs.version }}
