@@ -92,14 +92,14 @@ jobs:
         Write-Host "Release files prepared"
     
     - name: Upload release artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: release-files
         path: release/*
         retention-days: 30
     
     - name: Create GitHub Release
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
         files: release/*
         name: Release ${{ github.ref_name || inputs.version }}
