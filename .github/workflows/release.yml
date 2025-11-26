@@ -79,6 +79,13 @@ jobs:
         New-Item -ItemType Directory -Force -Path "dist" | Out-Null
         $exePath = "FoLive.GUI\bin\Release\net8.0-windows\win-x64\publish\FoLive.exe"
         Copy-Item $exePath -Destination "dist\FoLive.exe" -Force
+        
+        # Copy dependency installer script
+        if (Test-Path "install_dependencies.ps1") {
+          Copy-Item "install_dependencies.ps1" -Destination "dist\install_dependencies.ps1" -Force
+          Write-Host "[OK] Dependency installer script copied"
+        }
+        
         Write-Host "[OK] Files copied to dist/"
     
     - name: Install Inno Setup
