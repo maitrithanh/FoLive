@@ -75,15 +75,46 @@ Sau khi push tag, GitHub Actions sẽ tự động:
 
 ## 🔧 Manual (Nếu không dùng script)
 
-### Cách 1: Push tag
+### Cách 1: Push tag (Khuyến nghị)
 
 ```bash
-# 1. Commit và push code
+# 1. Kiểm tra trạng thái
+git status
+
+# 2. Thêm tất cả thay đổi
 git add .
+
+# 3. Commit (thay v1.0.1 bằng version của bạn)
 git commit -m "Update for release v1.0.1"
+
+# 4. Push code lên GitHub
 git push origin main
 
-# 2. Tạo và push tag
+# 5. Tạo tag (thay v1.0.1 bằng version của bạn)
+git tag v1.0.1
+
+# 6. Push tag lên GitHub
+git push origin v1.0.1
+```
+
+### Cách 2: Tạo tag với message
+
+```bash
+# Tạo tag với message mô tả
+git tag -a v1.0.1 -m "Release v1.0.1: Add new features"
+git push origin v1.0.1
+```
+
+### Cách 3: Xóa tag nếu cần (nếu tag đã tồn tại)
+
+```bash
+# Xóa tag local
+git tag -d v1.0.1
+
+# Xóa tag trên GitHub
+git push origin :refs/tags/v1.0.1
+
+# Sau đó tạo lại tag
 git tag v1.0.1
 git push origin v1.0.1
 ```
@@ -108,6 +139,82 @@ Ví dụ:
 - `1.0.1` - Bug fix
 - `1.1.0` - New features
 - `2.0.0` - Major update
+
+## 🚀 Quick Git Commands
+
+### Kiểm tra trạng thái
+```bash
+git status
+```
+
+### Xem các thay đổi
+```bash
+git diff
+```
+
+### Thêm tất cả thay đổi
+```bash
+git add .
+```
+
+### Commit với message
+```bash
+git commit -m "Your commit message here"
+```
+
+### Push code
+```bash
+git push origin main
+```
+
+### Tạo và push tag (1 lệnh)
+```bash
+# Tạo tag
+git tag v1.0.1
+
+# Push tag
+git push origin v1.0.1
+```
+
+### Tạo tag với message và push (1 lệnh)
+```bash
+git tag -a v1.0.1 -m "Release v1.0.1" && git push origin v1.0.1
+```
+
+### Xem tất cả tags
+```bash
+git tag
+```
+
+### Xem tag cụ thể
+```bash
+git show v1.0.1
+```
+
+### Xóa tag local
+```bash
+git tag -d v1.0.1
+```
+
+### Xóa tag trên GitHub
+```bash
+git push origin :refs/tags/v1.0.1
+```
+
+### Pull code mới nhất
+```bash
+git pull origin main
+```
+
+### Xem log commits
+```bash
+git log --oneline
+```
+
+### Xem log với tags
+```bash
+git log --oneline --decorate
+```
 
 ## ⚠️ Lưu ý
 

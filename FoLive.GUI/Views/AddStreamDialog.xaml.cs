@@ -4,6 +4,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using FoLive.Core.Models;
+using StreamModel = FoLive.Core.Models.Stream;
 
 namespace FoLive.Views;
 
@@ -83,7 +84,7 @@ public partial class AddStreamDialog : Window
         Close();
     }
 
-    public Stream? GetStream()
+    public StreamModel? GetStream()
     {
         string sourceType = "file";
         if (SourceTypeComboBox.SelectedItem is ComboBoxItem item && item.Content is string content)
@@ -122,7 +123,7 @@ public partial class AddStreamDialog : Window
             config["outro"] = OutroTextBox.Text;
         }
         
-        return new Stream
+        return new StreamModel
         {
             StreamId = StreamIdTextBox.Text,
             Source = SourceTextBox.Text,

@@ -1,12 +1,12 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
 using FoLive.Core.Models;
 using FoLive.Core.Services;
+using StreamModel = FoLive.Core.Models.Stream;
 
 namespace FoLive.Views;
 
@@ -14,7 +14,7 @@ public partial class MainWindow : Window
 {
     private readonly StreamManager _streamManager;
     private readonly FFmpegService _ffmpegService;
-    private readonly ObservableCollection<Stream> _streams;
+    private readonly ObservableCollection<StreamModel> _streams;
     private readonly DispatcherTimer _refreshTimer;
 
     public MainWindow()
@@ -23,7 +23,7 @@ public partial class MainWindow : Window
         
         _streamManager = new StreamManager();
         _ffmpegService = new FFmpegService();
-        _streams = new ObservableCollection<Stream>();
+        _streams = new ObservableCollection<StreamModel>();
         
         StreamsDataGrid.ItemsSource = _streams;
         

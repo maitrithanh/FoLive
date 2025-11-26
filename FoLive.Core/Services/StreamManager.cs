@@ -4,13 +4,13 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using FoLive.Core.Models;
-using FoLive.Core.Services;
+using StreamModel = FoLive.Core.Models.Stream;
 
 namespace FoLive.Core.Services;
 
 public class StreamManager
 {
-    private readonly Dictionary<string, Stream> _streams = new();
+    private readonly Dictionary<string, StreamModel> _streams = new();
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly FFmpegService _ffmpegService;
     private readonly YtDlpService _ytDlpService;
@@ -23,7 +23,7 @@ public class StreamManager
 
     public event EventHandler<StreamEventArgs>? StreamStatusChanged;
 
-    public async Task<bool> AddStreamAsync(Stream stream)
+    public async Task<bool> AddStreamAsync(StreamModel stream)
     {
         await _lock.WaitAsync();
         try
@@ -157,7 +157,7 @@ public class StreamManager
         }
     }
 
-    public async Task<List<Stream>> GetAllStreamsAsync()
+    public async Task<List<StreamModel>> GetAllStreamsAsync()
     {
         await _lock.WaitAsync();
         try
@@ -170,7 +170,7 @@ public class StreamManager
         }
     }
 
-    public async Task<Stream?> GetStreamAsync(string streamId)
+    public async Task<StreamModel?> GetStreamAsync(string streamId)
     {
         await _lock.WaitAsync();
         try
@@ -183,7 +183,7 @@ public class StreamManager
         }
     }
 
-    private async Task MonitorStreamAsync(Stream stream)
+    private async Task MonitorStreamAsync(StreamModel stream)
     {
         if (stream.Process == null) return;
 
@@ -206,7 +206,7 @@ public class StreamManager
         }
     }
 
-    protected virtual void OnStreamStatusChanged(Stream stream)
+    protected virtual void OnStreamStatusChanged(StreamModel stream)
     {
         StreamStatusChanged?.Invoke(this, new StreamEventArgs(stream));
     }
@@ -214,9 +214,9 @@ public class StreamManager
 
 public class StreamEventArgs : EventArgs
 {
-    public Stream Stream { get; }
+    public StreamModel Stream { get; }
 
-    public StreamEventArgs(Stream stream)
+    public StreamEventArgs(StreamModel stream)
     {
         Stream = stream;
     }
