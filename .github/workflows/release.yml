@@ -151,6 +151,82 @@ jobs:
         Write-Host "     Path: $($file.FullName)"
         Write-Host "     Size: $([math]::Round($size, 2)) MB"
     
+    - name: Install Inno Setup
+      shell: powershell
+      run: |
+        Write-Host "Installing Inno Setup..."
+        try {
+          winget install --id JRSoftware.InnoSetup -e --accept-source-agreements --accept-package-agreements
+          Write-Host "[OK] Inno Setup installed"
+        } catch {
+          Write-Host "[WARNING] Could not install Inno Setup via winget, trying Chocolatey..."
+          choco install innosetup -y
+        }
+      continue-on-error: true
+    
+    - name: Build Setup Installer
+      shell: powershell
+      run: |
+        Write-Host "Building Windows Setup Installer..."
+        
+        # Tìm Inno Setup compiler
+        $isccPaths = @(
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+          "C:\Program Files\Inno Setup 6\ISCC.exe",
+          "C:\Program Files (x86)\Inno Setup 5\ISCC.exe",
+          "C:\Program Files\Inno Setup 5\ISCC.exe"
+        )
+        
+        $iscc = $null
+        foreach ($path in $isccPaths) {
+          if (Test-Path $path) {
+            $iscc = $path
+            break
+          }
+        }
+        
+        if (-not $iscc) {
+          Write-Host "[WARNING] Inno Setup not found, skipping setup build"
+          Write-Host "          Only portable .exe will be released"
+          exit 0
+        }
+        
+        Write-Host "[OK] Found Inno Setup: $iscc"
+        
+        # Update version in .iss file
+        $version = "${{ github.event.inputs.version }}"
+        if ($version -match "^v") {
+          $version = $version.Substring(1)
+        }
+        if (-not $version) {
+          $version = "${{ github.ref_name }}"
+          if ($version -match "^v") {
+            $version = $version.Substring(1)
+          }
+        }
+        if (-not $version) {
+          $version = "1.0.0"
+        }
+        
+        Write-Host "Building installer for version: $version"
+        
+        # Build installer
+        & $iscc "FoLive.iss" /DAppVersion=$version
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "[WARNING] Setup build failed, continuing with portable .exe only"
+          exit 0
+        }
+        
+        if (Test-Path "dist\FoLive-Setup.exe") {
+          $setupFile = Get-Item "dist\FoLive-Setup.exe"
+          $setupSize = $setupFile.Length / 1MB
+          Write-Host "[OK] Setup installer built successfully!"
+          Write-Host "     File: $($setupFile.FullName)"
+          Write-Host "     Size: $([math]::Round($setupSize, 2)) MB"
+        } else {
+          Write-Host "[WARNING] Setup file not found after build"
+        }
+    
     - name: Create tag (if workflow_dispatch)
       if: github.event_name == 'workflow_dispatch'
       shell: powershell
@@ -168,31 +244,75 @@ jobs:
         git push origin "$tagName"
         Write-Host "[OK] Tag $tagName created and pushed"
     
+    - name: Prepare release files
+      shell: powershell
+      run: |
+        Write-Host "Preparing release files..."
+        $files = @()
+        
+        if (Test-Path "dist\FoLive.exe") {
+          $files += "dist\FoLive.exe"
+          Write-Host "[OK] FoLive.exe ready"
+        }
+        
+        if (Test-Path "dist\FoLive-Setup.exe") {
+          $files += "dist\FoLive-Setup.exe"
+          Write-Host "[OK] FoLive-Setup.exe ready"
+        }
+        
+        Write-Host "Total files to upload: $($files.Count)"
+        foreach ($file in $files) {
+          $size = (Get-Item $file).Length / 1MB
+          Write-Host "  - $file ($([math]::Round($size, 2)) MB)"
+        }
+    
     - name: Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
-        files: dist/FoLive.exe
+        files: |
+          dist/FoLive.exe
+          dist/FoLive-Setup.exe
         body: |
           ## FoLive Release ${{ github.ref_name }}
           
-          ### Download
+          ### 📦 Download
           
-          **Tai ngay file .exe:**
-          - **FoLive.exe** - Standalone executable (no Python required)
+          **Chọn một trong hai:**
           
-          ### Quick Start
+          #### 🎯 Setup Installer (Khuyến nghị - Giống app bình thường)
+          - **FoLive-Setup.exe** - Windows Installer với wizard cài đặt
+            - ✅ Cài đặt vào Program Files
+            - ✅ Tạo shortcut Start Menu & Desktop
+            - ✅ Tự động kiểm tra FFmpeg
+            - ✅ Gỡ cài đặt dễ dàng
+            - ✅ Giống các phần mềm Windows thông thường
           
-          1. Download file **FoLive.exe**
-          2. Double-click de chay ngay!
+          #### 🚀 Portable Version
+          - **FoLive.exe** - Standalone executable (portable)
+            - ✅ Không cần cài đặt
+            - ✅ Chạy trực tiếp từ bất kỳ đâu
+            - ✅ Phù hợp cho USB drive
           
-          ### Features
+          ### 🚀 Quick Start
+          
+          **Với Setup Installer:**
+          1. Download **FoLive-Setup.exe**
+          2. Double-click để chạy installer
+          3. Làm theo wizard cài đặt
+          4. Chạy từ Start Menu hoặc Desktop shortcut
+          
+          **Với Portable:**
+          1. Download **FoLive.exe**
+          2. Double-click để chạy ngay!
+          
+          ### ✨ Features
           - Windows Desktop GUI Application
           - Standalone executable (no Python required)
           - Auto-install FFmpeg if possible
           - All dependencies included
           
-          ### Requirements
+          ### 📋 Requirements
           - Windows 10/11
           - FFmpeg (will be auto-installed if possible)
           - No Python installation needed!
