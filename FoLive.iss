@@ -44,7 +44,7 @@ Name: "startmenu"; Description: "Create Start Menu shortcut"; GroupDescription: 
 [Files]
 Source: "dist\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "install_dependencies.ps1"; DestDir: "{app}"; Flags: ignoreversion
-Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion; IsReadme: yes
+Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 ; Note: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
