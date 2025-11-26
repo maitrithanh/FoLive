@@ -238,12 +238,23 @@ Nếu có vấn đề hoặc câu hỏi, vui lòng tạo issue trên GitHub.
 
 ## 📦 Download Release
 
+**⚠️ QUAN TRỌNG: Release KHÔNG tự động tạo!**
+
+**Bạn phải chạy workflow trước:**
+1. Vào tab **Actions** trên GitHub
+2. Chọn workflow **"Release Build"**
+3. Click **"Run workflow"**
+4. Nhập version: `1.0.0`
+5. Chờ 5-10 phút
+6. Vào tab **Releases** để download file **FoLive.exe**
+
 **Tải file .exe mới nhất:**
 - Vào [Releases](https://github.com/YOUR_USERNAME/FoLive/releases)
 - Download file **FoLive.exe**
-- Hoặc chạy workflow **Release Build** trong Actions để tự động build và tạo release
 
-**Xem hướng dẫn chi tiết:** [HOW_TO_RELEASE.md](HOW_TO_RELEASE.md)
+**Xem hướng dẫn chi tiết:**
+- [README_RELEASE.md](README_RELEASE.md) - Hướng dẫn đầy đủ (BẮT BUỘC ĐỌC!)
+- [HOW_TO_RELEASE.md](HOW_TO_RELEASE.md) - Hướng dẫn ngắn gọn
 
 ---
 

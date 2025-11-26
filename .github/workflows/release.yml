@@ -13,7 +13,7 @@ on:
 
 jobs:
   release:
-    name: Build Release
+    name: Build and Release
     runs-on: windows-latest
     
     steps:

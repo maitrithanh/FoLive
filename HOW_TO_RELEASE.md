@@ -2,27 +2,52 @@
 
 ## ⚡ Cách nhanh nhất: Tạo Release qua GitHub Actions
 
-### Bước 1: Vào GitHub Actions
-1. Vào repository trên GitHub
-2. Click tab **Actions** (ở trên cùng)
-3. Chọn workflow **"Release Build"** ở sidebar bên trái
+### 📍 Bước 1: Vào GitHub Actions
+1. Mở repository trên GitHub (ví dụ: `https://github.com/YOUR_USERNAME/FoLive`)
+2. Click tab **"Actions"** (ở trên cùng, bên cạnh Code, Issues, Pull requests...)
+3. Ở sidebar bên trái, tìm và click **"Release Build"**
 
-### Bước 2: Chạy workflow
-1. Click nút **"Run workflow"** (dropdown ở góc trên bên phải)
-2. Chọn branch: `main` hoặc `master`
-3. Nhập version: `1.0.0` (không cần chữ "v", chỉ số thôi)
-4. Click nút màu xanh **"Run workflow"**
+### ▶️ Bước 2: Chạy workflow
+1. Bạn sẽ thấy nút **"Run workflow"** (dropdown màu xanh ở góc trên bên phải)
+2. Click vào dropdown đó
+3. Chọn branch: `main` (hoặc `master` - branch chính của bạn)
+4. Nhập version: `1.0.0` (chỉ số, KHÔNG cần chữ "v")
+5. Click nút **"Run workflow"** (màu xanh)
 
-### Bước 3: Chờ workflow hoàn thành
+### ⏳ Bước 3: Chờ workflow hoàn thành
 - Workflow sẽ tự động:
   - ✅ Build file `.exe` (mất 5-10 phút)
   - ✅ Tạo GitHub Release
   - ✅ Upload file `FoLive.exe` lên release
 
-### Bước 4: Kiểm tra Release
-1. Vào tab **Releases** trên GitHub (bên cạnh tab Actions)
-2. Bạn sẽ thấy release mới với file **FoLive.exe** trong phần Assets
-3. Click vào **FoLive.exe** để download!
+**Làm sao biết đang chạy?**
+- Vào tab **Actions**
+- Bạn sẽ thấy workflow run với status "In progress" (màu vàng)
+- Khi xong sẽ chuyển thành "Success" (màu xanh) hoặc "Failed" (màu đỏ)
+
+### ✅ Bước 4: Kiểm tra Release
+1. Click tab **"Releases"** trên GitHub (bên cạnh tab Actions)
+2. Bạn sẽ thấy release mới với tên "Release v1.0.0"
+3. Trong phần **Assets**, bạn sẽ thấy file **FoLive.exe**
+4. Click vào **FoLive.exe** để download!
+
+## 🎯 Nếu không thấy nút "Run workflow"
+
+**Có thể do:**
+- Bạn chưa vào đúng workflow → Đảm bảo đã chọn "Release Build" ở sidebar
+- Bạn không có quyền → Cần quyền write trên repository
+- Workflow file chưa được commit → Push code lên GitHub trước
+
+## 🔍 Nếu workflow chạy nhưng không có release
+
+1. **Vào Actions** > Click vào workflow run vừa chạy
+2. **Xem các steps:**
+   - Step "Build executable" phải có dấu ✅
+   - Step "Verify executable exists" phải có dấu ✅
+   - Step "Create GitHub Release" phải có dấu ✅
+3. **Nếu có step failed:**
+   - Click vào step đó để xem logs
+   - Tìm dòng có "[ERROR]" để biết lỗi
 
 ## Cách 2: Tạo Release bằng Git Tag
 
