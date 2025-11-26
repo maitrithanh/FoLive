@@ -155,12 +155,69 @@ jobs:
       shell: powershell
       run: |
         Write-Host "Installing Inno Setup..."
+        $ErrorActionPreference = "Continue"
+        
+        # Method 1: Try Chocolatey (most reliable on GitHub Actions)
+        Write-Host "Trying Chocolatey..."
         try {
-          winget install --id JRSoftware.InnoSetup -e --accept-source-agreements --accept-package-agreements
-          Write-Host "[OK] Inno Setup installed"
+          choco install innosetup -y --no-progress
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "[OK] Inno Setup installed via Chocolatey"
+            exit 0
+          }
         } catch {
-          Write-Host "[WARNING] Could not install Inno Setup via winget, trying Chocolatey..."
-          choco install innosetup -y
+          Write-Host "[WARNING] Chocolatey failed: $_"
+        }
+        
+        # Method 2: Try winget
+        Write-Host "Trying winget..."
+        try {
+          winget install --id JRSoftware.InnoSetup -e --accept-source-agreements --accept-package-agreements --silent
+          Start-Sleep -Seconds 5
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "[OK] Inno Setup installed via winget"
+            exit 0
+          }
+        } catch {
+          Write-Host "[WARNING] winget failed: $_"
+        }
+        
+        # Method 3: Download and install manually
+        Write-Host "Trying manual download..."
+        try {
+          $installerUrl = "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
+          $installerPath = "$env:TEMP\innosetup-installer.exe"
+          Write-Host "Downloading from $installerUrl..."
+          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
+          Write-Host "Installing..."
+          Start-Process -FilePath $installerPath -ArgumentList "/SILENT", "/SUPPRESSMSGBOXES" -Wait
+          Start-Sleep -Seconds 3
+          Write-Host "[OK] Inno Setup installed via manual download"
+        } catch {
+          Write-Host "[ERROR] All installation methods failed: $_"
+          Write-Host "Setup installer will not be built, only portable .exe will be released"
+        }
+        
+        # Verify installation
+        $isccPaths = @(
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+          "C:\Program Files\Inno Setup 6\ISCC.exe",
+          "C:\Program Files (x86)\Inno Setup 5\ISCC.exe",
+          "C:\Program Files\Inno Setup 5\ISCC.exe"
+        )
+        
+        $found = $false
+        foreach ($path in $isccPaths) {
+          if (Test-Path $path) {
+            Write-Host "[OK] Verified Inno Setup at: $path"
+            $found = $true
+            break
+          }
+        }
+        
+        if (-not $found) {
+          Write-Host "[WARNING] Inno Setup not found after installation"
+          Write-Host "          Setup installer will not be built"
         }
       continue-on-error: true
     
@@ -168,6 +225,7 @@ jobs:
       shell: powershell
       run: |
         Write-Host "Building Windows Setup Installer..."
+        $ErrorActionPreference = "Continue"
         
         # Tìm Inno Setup compiler
         $isccPaths = @(
@@ -181,6 +239,7 @@ jobs:
         foreach ($path in $isccPaths) {
           if (Test-Path $path) {
             $iscc = $path
+            Write-Host "[OK] Found Inno Setup: $iscc"
             break
           }
         }
@@ -188,10 +247,15 @@ jobs:
         if (-not $iscc) {
           Write-Host "[WARNING] Inno Setup not found, skipping setup build"
           Write-Host "          Only portable .exe will be released"
+          Write-Host "          This is OK - portable version will still work"
           exit 0
         }
         
-        Write-Host "[OK] Found Inno Setup: $iscc"
+        # Kiểm tra file .iss có tồn tại không
+        if (-not (Test-Path "FoLive.iss")) {
+          Write-Host "[WARNING] FoLive.iss not found, skipping setup build"
+          exit 0
+        }
         
         # Update version in .iss file
         $version = "${{ github.event.inputs.version }}"
@@ -209,14 +273,26 @@ jobs:
         }
         
         Write-Host "Building installer for version: $version"
+        Write-Host "Using ISCC: $iscc"
+        Write-Host "ISS file: FoLive.iss"
         
-        # Build installer
-        & $iscc "FoLive.iss" /DAppVersion=$version
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "[WARNING] Setup build failed, continuing with portable .exe only"
+        # Build installer với error handling tốt hơn
+        try {
+          $process = Start-Process -FilePath $iscc -ArgumentList "FoLive.iss", "/DAppVersion=$version" -Wait -PassThru -NoNewWindow
+          
+          if ($process.ExitCode -eq 0) {
+            Write-Host "[OK] ISCC completed successfully"
+          } else {
+            Write-Host "[WARNING] ISCC exited with code: $($process.ExitCode)"
+          }
+        } catch {
+          Write-Host "[ERROR] Failed to run ISCC: $_"
+          Write-Host "        Setup build failed, continuing with portable .exe only"
           exit 0
         }
         
+        # Kiểm tra file đã được tạo
+        Start-Sleep -Seconds 2
         if (Test-Path "dist\FoLive-Setup.exe") {
           $setupFile = Get-Item "dist\FoLive-Setup.exe"
           $setupSize = $setupFile.Length / 1MB
@@ -225,6 +301,9 @@ jobs:
           Write-Host "     Size: $([math]::Round($setupSize, 2)) MB"
         } else {
           Write-Host "[WARNING] Setup file not found after build"
+          Write-Host "          Checking dist folder contents:"
+          Get-ChildItem "dist" | ForEach-Object { Write-Host "    $($_.Name)" }
+          Write-Host "          Only portable .exe will be released"
         }
     
     - name: Create tag (if workflow_dispatch)
@@ -252,18 +331,26 @@ jobs:
         
         if (Test-Path "dist\FoLive.exe") {
           $files += "dist\FoLive.exe"
-          Write-Host "[OK] FoLive.exe ready"
+          $size = (Get-Item "dist\FoLive.exe").Length / 1MB
+          Write-Host "[OK] FoLive.exe ready ($([math]::Round($size, 2)) MB)"
+        } else {
+          Write-Host "[ERROR] FoLive.exe not found!"
+          exit 1
         }
         
         if (Test-Path "dist\FoLive-Setup.exe") {
           $files += "dist\FoLive-Setup.exe"
-          Write-Host "[OK] FoLive-Setup.exe ready"
+          $size = (Get-Item "dist\FoLive-Setup.exe").Length / 1MB
+          Write-Host "[OK] FoLive-Setup.exe ready ($([math]::Round($size, 2)) MB)"
+        } else {
+          Write-Host "[WARNING] FoLive-Setup.exe not found"
+          Write-Host "          Only portable .exe will be released"
         }
         
+        Write-Host ""
         Write-Host "Total files to upload: $($files.Count)"
         foreach ($file in $files) {
-          $size = (Get-Item $file).Length / 1MB
-          Write-Host "  - $file ($([math]::Round($size, 2)) MB)"
+          Write-Host "  - $file"
         }
     
     - name: Create GitHub Release
@@ -273,6 +360,7 @@ jobs:
         files: |
           dist/FoLive.exe
           dist/FoLive-Setup.exe
+        fail_on_unmatched_files: false
         body: |
           ## FoLive Release ${{ github.ref_name }}
           
