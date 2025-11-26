@@ -41,6 +41,7 @@ jobs:
       id: verify-changed-files
       shell: powershell
       run: |
+        $ErrorActionPreference = "Continue"
         git diff --quiet
         if ($LASTEXITCODE -ne 0) {
           Write-Host "Files were formatted"
@@ -49,6 +50,8 @@ jobs:
           Write-Host "No changes needed"
           echo "changed=false" >> $env:GITHUB_OUTPUT
         }
+        # Don't fail if there are changes (that's expected)
+        exit 0
     
     - name: Commit changes
       if: steps.verify-changed-files.outputs.changed == 'true'
