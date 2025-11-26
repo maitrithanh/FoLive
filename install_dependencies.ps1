@@ -19,36 +19,65 @@ function Install-FFmpeg {
     
     # Check if already installed
     try {
-        $null = ffmpeg -version 2>&1
-        Write-Log "[OK] FFmpeg is already installed"
-        return $true
+        $process = Start-Process -FilePath "ffmpeg" -ArgumentList "-version" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+        if ($process.ExitCode -eq 0) {
+            Write-Log "[OK] FFmpeg is already installed"
+            return $true
+        }
     } catch {
         Write-Log "[INFO] FFmpeg not found, installing..."
     }
     
     # Try winget first (Windows 10/11)
+    # According to https://www.gyan.dev/ffmpeg/builds/
+    # release full: winget install ffmpeg
+    # release essentials: winget install "FFmpeg (Essentials Build)"
     try {
-        Write-Log "Attempting to install FFmpeg via winget..."
-        $result = winget install --id Gyan.FFmpeg -e --accept-source-agreements --accept-package-agreements --silent 2>&1
-        if ($LASTEXITCODE -eq 0) {
+        Write-Log "Attempting to install FFmpeg via winget (full build)..."
+        $process = Start-Process -FilePath "winget" -ArgumentList "install ffmpeg --accept-source-agreements --accept-package-agreements --silent" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+        if ($process.ExitCode -eq 0) {
             Write-Log "[OK] FFmpeg installed via winget"
             
             # Refresh PATH
             $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
             
             # Verify installation
-            Start-Sleep -Seconds 2
+            Start-Sleep -Seconds 3
             try {
-                $null = ffmpeg -version 2>&1
-                Write-Log "[OK] FFmpeg verified successfully"
-                return $true
+                $verifyProcess = Start-Process -FilePath "ffmpeg" -ArgumentList "-version" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+                if ($verifyProcess.ExitCode -eq 0) {
+                    Write-Log "[OK] FFmpeg verified successfully"
+                    return $true
+                } else {
+                    Write-Log "[WARNING] FFmpeg installed but not in PATH yet"
+                    return $true
+                }
             } catch {
                 Write-Log "[WARNING] FFmpeg installed but not in PATH yet"
                 return $true
             }
+        } else {
+            Write-Log "[WARNING] winget full build installation failed, trying essentials build..."
+            # Try essentials build as fallback
+            $process = Start-Process -FilePath "winget" -ArgumentList "install `"FFmpeg (Essentials Build)`" --accept-source-agreements --accept-package-agreements --silent" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+            if ($process.ExitCode -eq 0) {
+                Write-Log "[OK] FFmpeg (Essentials) installed via winget"
+                $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+                Start-Sleep -Seconds 3
+                try {
+                    $verifyProcess = Start-Process -FilePath "ffmpeg" -ArgumentList "-version" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+                    if ($verifyProcess.ExitCode -eq 0) {
+                        Write-Log "[OK] FFmpeg verified successfully"
+                        return $true
+                    }
+                } catch { }
+                return $true
+            } else {
+                Write-Log "[WARNING] winget installation failed with exit code: $($process.ExitCode)"
+            }
         }
     } catch {
-        Write-Log "[WARNING] winget installation failed"
+        Write-Log "[WARNING] winget installation failed: $_"
     }
     
     # Try Chocolatey
@@ -99,13 +128,15 @@ function Install-YtDlp {
     # Try winget
     try {
         Write-Log "Attempting to install yt-dlp via winget..."
-        $result = winget install --id yt-dlp.yt-dlp -e --accept-source-agreements --accept-package-agreements --silent 2>&1
-        if ($LASTEXITCODE -eq 0) {
+        $process = Start-Process -FilePath "winget" -ArgumentList "install yt-dlp --accept-source-agreements --accept-package-agreements --silent" -NoNewWindow -Wait -PassThru -ErrorAction SilentlyContinue
+        if ($process.ExitCode -eq 0) {
             Write-Log "[OK] yt-dlp installed via winget"
             return $true
+        } else {
+            Write-Log "[WARNING] winget installation failed with exit code: $($process.ExitCode)"
         }
     } catch {
-        Write-Log "[WARNING] winget installation failed"
+        Write-Log "[WARNING] winget installation failed: $_"
     }
     
     # Try Chocolatey
