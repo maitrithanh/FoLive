@@ -4,15 +4,20 @@ using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
 using FoLive.Core.Models;
+using FoLive.Core.Services;
 using StreamModel = FoLive.Core.Models.Stream;
 
 namespace FoLive.Views;
 
 public partial class AddStreamDialog : Window
 {
-    public AddStreamDialog()
+    private readonly SubscriptionService? _subscriptionService;
+
+    public AddStreamDialog(SubscriptionService? subscriptionService = null)
     {
         InitializeComponent();
+        
+        _subscriptionService = subscriptionService ?? App.SubscriptionService;
         
         // Setup slider value changed handlers
         SpeedSlider.ValueChanged += (s, e) => SpeedValueText.Text = $"{SpeedSlider.Value:F1}x";
@@ -27,6 +32,55 @@ public partial class AddStreamDialog : Window
                 CustomResolutionPanel.Visibility = content == "Custom" ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
             }
         };
+
+        // Disable features based on subscription
+        UpdateFeatureAvailability();
+    }
+
+    private void UpdateFeatureAvailability()
+    {
+        if (_subscriptionService == null) return;
+
+        // Disable screen capture if not allowed
+        if (!_subscriptionService.CanUseScreenCapture())
+        {
+            // Find and disable Screen option
+            foreach (ComboBoxItem item in SourceTypeComboBox.Items)
+            {
+                if (item.Content is string content && content == "Screen")
+                {
+                    item.IsEnabled = false;
+                    break;
+                }
+            }
+        }
+
+        // Disable multiple sources if not allowed
+        if (!_subscriptionService.CanUseMultipleSources())
+        {
+            // Disable YouTube, Playlist, Facebook, URL options
+            foreach (ComboBoxItem item in SourceTypeComboBox.Items)
+            {
+                if (item.Content is string content)
+                {
+                    var lowerContent = content.ToLower();
+                    if (lowerContent.Contains("youtube") || 
+                        lowerContent.Contains("playlist") || 
+                        lowerContent.Contains("facebook") || 
+                        lowerContent.Contains("url"))
+                    {
+                        item.IsEnabled = false;
+                    }
+                }
+            }
+        }
+
+        // Disable advanced features if not allowed
+        if (!_subscriptionService.CanUseAdvancedFeatures())
+        {
+            UseRenderCheckBox.IsEnabled = false;
+            UseRenderCheckBox.ToolTip = "Tính năng này chỉ dành cho gói trả phí";
+        }
     }
 
     private void BrowseFile_Click(object sender, RoutedEventArgs e)
@@ -80,13 +134,54 @@ public partial class AddStreamDialog : Window
 
     private void Add_Click(object sender, RoutedEventArgs e)
     {
+        // Kiểm tra đăng nhập trước
+        if (!App.AuthService.IsLoggedIn)
+        {
+            MessageBox.Show(
+                "Vui lòng đăng nhập để sử dụng tính năng này.",
+                "Yêu cầu đăng nhập",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(StreamIdTextBox.Text) ||
             string.IsNullOrWhiteSpace(SourceTextBox.Text) ||
             string.IsNullOrWhiteSpace(StreamKeyTextBox.Text))
         {
-            MessageBox.Show("Please fill in all required fields.", "Validation Error", 
+            MessageBox.Show("Vui lòng điền đầy đủ thông tin bắt buộc.", "Lỗi xác thực", 
                 MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
+        }
+
+        // Check if selected source type is allowed
+        if (SourceTypeComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Content is string sourceType)
+        {
+            var lowerType = sourceType.ToLower();
+            
+            // Check screen capture
+            if (lowerType == "screen" && _subscriptionService != null && !_subscriptionService.CanUseScreenCapture())
+            {
+                MessageBox.Show(
+                    _subscriptionService.GetFeatureRestrictionMessage("screen_capture"),
+                    "Tính năng không khả dụng",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
+
+            // Check multiple sources
+            if ((lowerType.Contains("youtube") || lowerType.Contains("playlist") || 
+                 lowerType.Contains("facebook") || lowerType.Contains("url")) &&
+                _subscriptionService != null && !_subscriptionService.CanUseMultipleSources())
+            {
+                MessageBox.Show(
+                    _subscriptionService.GetFeatureRestrictionMessage("multiple_sources"),
+                    "Tính năng không khả dụng",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                return;
+            }
         }
 
         DialogResult = true;

@@ -289,12 +289,13 @@
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="Auto"/>
                     <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 
                 <!-- User Info -->
                 <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
                     <TextBlock Text="👤" FontSize="14" Margin="0,0,5,0"/>
-                    <TextBlock Text="User - Vĩnh viễn" FontSize="12" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="UserInfoText" Text="User - Vĩnh viễn" FontSize="12" VerticalAlignment="Center"/>
                 </StackPanel>
                 
                 <!-- Change Password -->
@@ -312,6 +313,17 @@
                 <Button Grid.Column="2" 
                        Content="🛒 Gia hạn ngay" 
                        Click="Renew_Click"
+                       Background="Transparent"
+                       BorderThickness="0"
+                       Padding="10,5"
+                       FontSize="12"
+                       Margin="0,0,15,0"
+                       Cursor="Hand"/>
+                
+                <!-- Logout -->
+                <Button Grid.Column="3" 
+                       Content="🚪 Đăng xuất" 
+                       Click="Logout_Click"
                        Background="Transparent"
                        BorderThickness="0"
                        Padding="10,5"

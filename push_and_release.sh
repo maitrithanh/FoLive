@@ -104,3 +104,4 @@ elif command -v xdg-open >/dev/null 2>&1; then
     xdg-open "https://github.com/maitrithanh/FoLive/actions"
 fi
 
+
