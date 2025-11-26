@@ -92,34 +92,78 @@ jobs:
       shell: powershell
       run: |
         Write-Host "Installing Inno Setup..."
-        $ErrorActionPreference = "Continue"
+        $ErrorActionPreference = "Stop"
+        $installed = $false
+        
+        # Check if already installed
+        $isccPaths = @(
+          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
+          "C:\Program Files\Inno Setup 6\ISCC.exe",
+          "C:\Program Files (x86)\Inno Setup 5\ISCC.exe",
+          "C:\Program Files\Inno Setup 5\ISCC.exe"
+        )
+        
+        foreach ($path in $isccPaths) {
+          if (Test-Path $path) {
+            Write-Host "[OK] Inno Setup already installed at: $path"
+            $installed = $true
+            break
+          }
+        }
+        
+        if ($installed) {
+          exit 0
+        }
         
         # Try Chocolatey
         try {
+          Write-Host "Attempting to install via Chocolatey..."
           choco install innosetup -y --no-progress
           if ($LASTEXITCODE -eq 0) {
             Write-Host "[OK] Inno Setup installed via Chocolatey"
-            exit 0
+            Start-Sleep -Seconds 3
+            $installed = $true
           }
         } catch {
-          Write-Host "[WARNING] Chocolatey failed"
+          Write-Host "[WARNING] Chocolatey installation failed: $_"
         }
         
-        # Try winget
-        try {
-          winget install --id JRSoftware.InnoSetup -e --accept-source-agreements --accept-package-agreements --silent
-          Start-Sleep -Seconds 5
-          Write-Host "[OK] Inno Setup installed via winget"
-        } catch {
-          Write-Host "[WARNING] winget failed"
+        # Try winget if Chocolatey failed
+        if (-not $installed) {
+          try {
+            Write-Host "Attempting to install via winget..."
+            winget install --id JRSoftware.InnoSetup -e --accept-source-agreements --accept-package-agreements --silent
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "[OK] Inno Setup installed via winget"
+              Start-Sleep -Seconds 5
+              $installed = $true
+            }
+          } catch {
+            Write-Host "[WARNING] winget installation failed: $_"
+          }
         }
-      continue-on-error: true
+        
+        # Verify installation
+        if (-not $installed) {
+          Write-Host "[ERROR] Failed to install Inno Setup"
+          Write-Host "Checking if Inno Setup exists in common paths..."
+          foreach ($path in $isccPaths) {
+            if (Test-Path $path) {
+              Write-Host "[OK] Found Inno Setup at: $path"
+              exit 0
+            }
+          }
+          Write-Host "[ERROR] Inno Setup not found. Setup installer will not be built."
+          exit 1
+        }
+        
+        Write-Host "[OK] Inno Setup installation completed"
     
     - name: Build Setup Installer
       shell: powershell
       run: |
         Write-Host "Building Windows Setup Installer..."
-        $ErrorActionPreference = "Continue"
+        $ErrorActionPreference = "Stop"
         
         # Find Inno Setup
         $isccPaths = @(
@@ -139,8 +183,12 @@ jobs:
         }
         
         if (-not $iscc) {
-          Write-Host "[WARNING] Inno Setup not found, skipping setup build"
-          exit 0
+          Write-Host "[ERROR] Inno Setup not found!"
+          Write-Host "Searched paths:"
+          foreach ($path in $isccPaths) {
+            Write-Host "  - $path"
+          }
+          exit 1
         }
         
         # Get version
@@ -148,49 +196,99 @@ jobs:
         if ($version -match "^v") {
           $version = $version.Substring(1)
         }
-        if (-not $version) {
+        if (-not $version -or $version -eq "") {
           $version = "${{ github.ref_name }}"
           if ($version -match "^v") {
             $version = $version.Substring(1)
           }
         }
-        if (-not $version) {
+        if (-not $version -or $version -eq "") {
           $version = "1.0.0"
         }
         
         Write-Host "Building installer for version: $version"
+        Write-Host "Using ISCC: $iscc"
+        Write-Host "Script file: FoLive.iss"
         
-        # Build installer
-        & $iscc "FoLive.iss" /DAppVersion=$version
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "[WARNING] Setup build failed"
-          exit 0
+        # Verify script exists
+        if (-not (Test-Path "FoLive.iss")) {
+          Write-Host "[ERROR] FoLive.iss not found!"
+          exit 1
         }
         
-        if (Test-Path "dist\FoLive-Setup.exe") {
-          $setupFile = Get-Item "dist\FoLive-Setup.exe"
+        # Verify dist directory exists
+        if (-not (Test-Path "dist")) {
+          New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+          Write-Host "[OK] Created dist directory"
+        }
+        
+        # Build installer
+        Write-Host "Running ISCC..."
+        & $iscc "FoLive.iss" /DAppVersion=$version
+        $buildExitCode = $LASTEXITCODE
+        
+        if ($buildExitCode -ne 0) {
+          Write-Host "[ERROR] Setup build failed with exit code: $buildExitCode"
+          exit 1
+        }
+        
+        # Verify output file
+        $setupPath = "dist\FoLive-Setup.exe"
+        if (Test-Path $setupPath) {
+          $setupFile = Get-Item $setupPath
           $setupSize = $setupFile.Length / 1MB
           Write-Host "[OK] Setup installer built successfully!"
           Write-Host "     File: $($setupFile.FullName)"
           Write-Host "     Size: $([math]::Round($setupSize, 2)) MB"
+          Write-Host "     Version: $version"
+        } else {
+          Write-Host "[ERROR] Setup installer file not found at: $setupPath"
+          Write-Host "Contents of dist directory:"
+          if (Test-Path "dist") {
+            Get-ChildItem "dist" | ForEach-Object { Write-Host "  - $($_.Name)" }
+          }
+          exit 1
         }
     
-    - name: Prepare release files
+    - name: Verify release files
       shell: powershell
       run: |
-        Write-Host "Preparing release files..."
+        Write-Host "Verifying release files..."
+        $ErrorActionPreference = "Stop"
+        
         $exePath = "FoLive.GUI\bin\Release\net8.0-windows\win-x64\publish\FoLive.exe"
         $setupPath = "dist\FoLive-Setup.exe"
+        
+        $allFilesExist = $true
         
         if (Test-Path $exePath) {
           $size = (Get-Item $exePath).Length / 1MB
           Write-Host "[OK] FoLive.exe ready ($([math]::Round($size, 2)) MB)"
+        } else {
+          Write-Host "[ERROR] FoLive.exe not found at: $exePath"
+          $allFilesExist = $false
         }
         
         if (Test-Path $setupPath) {
           $size = (Get-Item $setupPath).Length / 1MB
           Write-Host "[OK] FoLive-Setup.exe ready ($([math]::Round($size, 2)) MB)"
+        } else {
+          Write-Host "[ERROR] FoLive-Setup.exe not found at: $setupPath"
+          Write-Host "Contents of dist directory:"
+          if (Test-Path "dist") {
+            Get-ChildItem "dist" | ForEach-Object { Write-Host "  - $($_.Name) ($($_.Length / 1MB) MB)" }
+          } else {
+            Write-Host "  dist directory does not exist"
+          }
+          $allFilesExist = $false
         }
+        
+        if (-not $allFilesExist) {
+          Write-Host "[ERROR] Some release files are missing!"
+          exit 1
+        }
+        
+        Write-Host "[OK] All release files verified successfully"
     
     - name: Create tag (if workflow_dispatch)
       if: github.event_name == 'workflow_dispatch'
@@ -216,7 +314,7 @@ jobs:
         files: |
           FoLive.GUI/bin/Release/net8.0-windows/win-x64/publish/FoLive.exe
           dist/FoLive-Setup.exe
-        fail_on_unmatched_files: false
+        fail_on_unmatched_files: true
         body: |
           ## FoLive Release ${{ github.ref_name }}
           
