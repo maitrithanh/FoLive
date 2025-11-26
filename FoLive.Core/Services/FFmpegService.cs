@@ -21,15 +21,38 @@ public class FFmpegService
     private string FindFFmpeg()
     {
         // Check common paths
-        var paths = new[]
+        var paths = new List<string>
         {
             "ffmpeg.exe",
             @"C:\ffmpeg\bin\ffmpeg.exe",
-            @"C:\Program Files\ffmpeg\bin\ffmpeg.exe",
-            Environment.GetEnvironmentVariable("PATH")?.Split(';')
+            @"C:\Program Files\ffmpeg\bin\ffmpeg.exe"
         };
 
-        // Try to find in PATH
+        // Add paths from PATH environment variable
+        var pathEnv = Environment.GetEnvironmentVariable("PATH");
+        if (!string.IsNullOrEmpty(pathEnv))
+        {
+            var pathEntries = pathEnv.Split(';', StringSplitOptions.RemoveEmptyEntries);
+            foreach (var pathEntry in pathEntries)
+            {
+                var fullPath = Path.Combine(pathEntry, "ffmpeg.exe");
+                if (!paths.Contains(fullPath))
+                {
+                    paths.Add(fullPath);
+                }
+            }
+        }
+
+        // Check each path
+        foreach (var path in paths)
+        {
+            if (File.Exists(path))
+            {
+                return path;
+            }
+        }
+
+        // Try to find in PATH by running ffmpeg command
         try
         {
             var process = new Process

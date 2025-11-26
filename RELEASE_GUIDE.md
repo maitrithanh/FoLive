@@ -222,6 +222,17 @@ git log --oneline --decorate
 2. **Version phải tăng** mỗi lần release
 3. **Tag không được trùng** - nếu trùng sẽ báo lỗi
 4. **Chờ workflow chạy xong** trước khi release tiếp
+5. **Luôn pull trước khi push** để tránh conflict: `git pull origin main`
+
+## 📋 Checklist trước khi release
+
+- [ ] Code đã được test
+- [ ] Không có lỗi compile
+- [ ] Đã commit tất cả thay đổi
+- [ ] Đã pull code mới nhất: `git pull origin main`
+- [ ] Version number đã được tăng
+- [ ] Tag chưa tồn tại: `git tag | grep v1.0.1`
+- [ ] Sẵn sàng push: `git push origin main && git push origin v1.0.1`
 
 ## 🐛 Troubleshooting
 
@@ -245,7 +256,15 @@ git log --oneline --decorate
 - Kiểm tra tag đã được push chưa
 - Xem logs trong Actions
 
+## 📚 Tài liệu tham khảo
+
+- **Git Commands chi tiết**: Xem [GIT_COMMANDS.md](./GIT_COMMANDS.md)
+- **GitHub Actions**: https://github.com/maitrithanh/FoLive/actions
+- **Releases**: https://github.com/maitrithanh/FoLive/releases
+
 ---
 
 **Chạy script và release sẽ tự động!** 🚀
+
+**Hoặc copy commands từ [GIT_COMMANDS.md](./GIT_COMMANDS.md) để thao tác thủ công!**
 
