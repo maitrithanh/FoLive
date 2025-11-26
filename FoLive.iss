@@ -63,7 +63,6 @@ var
 
 // Windows API declarations
 const
-  HWND_BROADCAST = $FFFF;
   WM_SETTINGCHANGE = $001A;
   SMTO_ABORTIFHUNG = $0002;
 
@@ -217,7 +216,7 @@ begin
     // Broadcast environment change
     try
       var Dummy: LongWord;
-      SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, LongInt(PChar('Environment')), SMTO_ABORTIFHUNG, 5000, Dummy);
+      SendMessageTimeout($FFFF, WM_SETTINGCHANGE, 0, LongInt(PChar('Environment')), SMTO_ABORTIFHUNG, 5000, Dummy);
     except
       // Ignore errors
     end;
