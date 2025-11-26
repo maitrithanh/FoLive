@@ -60,104 +60,138 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(
 [Code]
 var
   DependenciesPage: TOutputProgressWizardPage;
-  DependenciesInstalled: Boolean;
-
-procedure InitializeWizard;
-var
   FFmpegInstalled: Boolean;
+
+function InitializeSetup(): Boolean;
+var
   ResultCode: Integer;
+  FFmpegPath: String;
 begin
-  // Check if FFmpeg is already installed
-  FFmpegInstalled := Exec('ffmpeg', '-version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  Result := True;
+  FFmpegInstalled := False;
   
-  if not FFmpegInstalled then
+  // Check if FFmpeg is already in PATH
+  if Exec('ffmpeg', '-version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
   begin
-    // Create dependencies installation page
-    DependenciesPage := CreateOutputProgressPage('Installing Dependencies', 'Please wait while we install required components...');
-    DependenciesPage.Show;
-    
-    try
-      DependenciesPage.SetText('Installing FFmpeg...', '');
-      DependenciesPage.SetProgress(0, 100);
-      
-      // Try winget first (most reliable on Windows 10/11)
-      if Exec('winget', 'install --id Gyan.FFmpeg -e --accept-source-agreements --accept-package-agreements --silent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-      begin
-        if ResultCode = 0 then
-        begin
-          DependenciesPage.SetText('FFmpeg installed successfully!', '');
-          DependenciesPage.SetProgress(50, 100);
-          Sleep(1000);
-        end;
-      end
-      // Try Chocolatey
-      else if Exec('choco', 'install ffmpeg -y --no-progress', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-      begin
-        if ResultCode = 0 then
-        begin
-          DependenciesPage.SetText('FFmpeg installed successfully!', '');
-          DependenciesPage.SetProgress(50, 100);
-          Sleep(1000);
-        end;
-      end;
-      
-      // Try to install yt-dlp (optional but recommended)
-      DependenciesPage.SetText('Installing yt-dlp (optional)...', '');
-      DependenciesPage.SetProgress(75, 100);
-      
-      if Exec('winget', 'install --id yt-dlp.yt-dlp -e --accept-source-agreements --accept-package-agreements --silent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-      begin
-        if ResultCode = 0 then
-        begin
-          DependenciesPage.SetText('yt-dlp installed successfully!', '');
-          DependenciesPage.SetProgress(100, 100);
-          Sleep(1000);
-        end;
-      end
-      else if Exec('choco', 'install yt-dlp -y --no-progress', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-      begin
-        if ResultCode = 0 then
-        begin
-          DependenciesPage.SetText('yt-dlp installed successfully!', '');
-          DependenciesPage.SetProgress(100, 100);
-          Sleep(1000);
-        end;
-      end;
-      
-      DependenciesInstalled := True;
-      
-    finally
-      DependenciesPage.Hide;
-    end;
-    
-    // Verify FFmpeg installation
-    if not Exec('ffmpeg', '-version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    if ResultCode = 0 then
     begin
-      if MsgBox('FFmpeg could not be installed automatically.' + #13#10 + #13#10 +
-                'FoLive requires FFmpeg to function.' + #13#10 + #13#10 +
-                'Would you like to:' + #13#10 +
-                '1. Continue installation (you can install FFmpeg manually later)' + #13#10 +
-                '2. Cancel and install FFmpeg first', mbConfirmation, MB_YESNO) = IDNO then
-      begin
-        Abort;
-      end;
-    end
-    else
-    begin
-      MsgBox('All dependencies installed successfully!' + #13#10 + #13#10 +
-             'FFmpeg is ready to use.', mbInformation, MB_OK);
+      FFmpegInstalled := True;
+      Exit;
     end;
+  end;
+  
+  // Check common installation paths
+  FFmpegPath := ExpandConstant('{pf}\ffmpeg\bin\ffmpeg.exe');
+  if FileExists(FFmpegPath) then
+  begin
+    FFmpegInstalled := True;
+    Exit;
+  end;
+  
+  FFmpegPath := ExpandConstant('{pf32}\ffmpeg\bin\ffmpeg.exe');
+  if FileExists(FFmpegPath) then
+  begin
+    FFmpegInstalled := True;
+    Exit;
   end;
 end;
 
-function NextButtonClick(CurPageID: Integer): Boolean;
+procedure InitializeWizard;
+var
+  ResultCode: Integer;
+  InstallSuccess: Boolean;
 begin
-  Result := True;
+  // Skip if already installed
+  if FFmpegInstalled then
+    Exit;
   
-  // If we're on the ready page and dependencies were installed, show message
-  if (CurPageID = wpReady) and DependenciesInstalled then
+  // Automatically install FFmpeg without asking
+  // Create progress page
+  DependenciesPage := CreateOutputProgressPage('Installing FFmpeg', 'FoLive is installing FFmpeg automatically...');
+  DependenciesPage.Show;
+  
+  InstallSuccess := False;
+  
+  try
+    DependenciesPage.SetText('Installing FFmpeg via winget...', 'This may take a few minutes.');
+    DependenciesPage.SetProgress(10, 100);
+    
+    // Try winget first (Windows 10/11)
+    if Exec('winget', 'install --id Gyan.FFmpeg -e --accept-source-agreements --accept-package-agreements --silent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    begin
+      if ResultCode = 0 then
+      begin
+        DependenciesPage.SetText('FFmpeg installation completed. Verifying...', '');
+        DependenciesPage.SetProgress(80, 100);
+        Sleep(3000); // Wait for PATH to update
+        
+        // Verify installation
+        if Exec('ffmpeg', '-version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+        begin
+          if ResultCode = 0 then
+          begin
+            InstallSuccess := True;
+            FFmpegInstalled := True;
+          end;
+        end;
+      end;
+    end;
+    
+    // Try Chocolatey if winget failed
+    if not InstallSuccess then
+    begin
+      DependenciesPage.SetText('Trying Chocolatey...', '');
+      DependenciesPage.SetProgress(30, 100);
+      
+      if Exec('choco', 'install ffmpeg -y --no-progress', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      begin
+        if ResultCode = 0 then
+        begin
+          DependenciesPage.SetText('FFmpeg installation completed. Verifying...', '');
+          DependenciesPage.SetProgress(80, 100);
+          Sleep(3000);
+          
+          if Exec('ffmpeg', '-version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+          begin
+            if ResultCode = 0 then
+            begin
+              InstallSuccess := True;
+              FFmpegInstalled := True;
+            end;
+          end;
+        end;
+      end;
+    end;
+    
+    DependenciesPage.SetProgress(100, 100);
+    
+  finally
+    DependenciesPage.Hide;
+  end;
+  
+  // Show result only if failed
+  if InstallSuccess then
   begin
-    // Dependencies already installed in InitializeWizard
+    // Silent success - no message needed
+  end
+  else
+  begin
+    // Only ask if automatic installation failed
+    if MsgBox('FFmpeg could not be installed automatically.' + #13#10 + #13#10 +
+              'Possible reasons:' + #13#10 +
+              '- winget or Chocolatey is not available' + #13#10 +
+              '- Administrator privileges required' + #13#10 +
+              '- Network connection issue' + #13#10 + #13#10 +
+              'You can install FFmpeg manually:' + #13#10 +
+              '1. Visit: https://ffmpeg.org/download.html' + #13#10 +
+              '2. Or run: winget install Gyan.FFmpeg' + #13#10 + #13#10 +
+              'Would you like to:' + #13#10 +
+              '1. Continue installation (install FFmpeg manually later)' + #13#10 +
+              '2. Cancel and install FFmpeg first', 
+              mbConfirmation, MB_YESNO) = IDNO then
+    begin
+      Abort;
+    end;
   end;
 end;
 
