@@ -63,9 +63,19 @@
                    FontWeight="Bold"
                    Padding="20,12"
                    BorderThickness="0"
-                   CornerRadius="6"
                    Cursor="Hand"
-                   Margin="0,0,0,15"/>
+                   Margin="0,0,0,15">
+                <Button.Template>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" 
+                                            VerticalAlignment="Center"/>
+                        </Border>
+                    </ControlTemplate>
+                </Button.Template>
+            </Button>
 
             <TextBlock x:Name="ErrorMessageText" 
                       Text="" 
