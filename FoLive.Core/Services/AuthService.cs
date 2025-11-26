@@ -53,35 +53,81 @@ public class AuthService
             var response = await _httpClient.PostAsync("/api/auth/login", content);
             var responseContent = await response.Content.ReadAsStringAsync();
 
+            // Kiểm tra Content-Type để đảm bảo response là JSON
+            var contentType = response.Content.Headers.ContentType?.MediaType ?? "";
+            if (!string.IsNullOrEmpty(responseContent) && 
+                !contentType.Contains("json") && 
+                !responseContent.TrimStart().StartsWith("{") && 
+                !responseContent.TrimStart().StartsWith("["))
+            {
+                // Response không phải JSON, có thể là HTML error page
+                return new LoginResult
+                {
+                    Success = false,
+                    Message = $"Lỗi từ server: {responseContent.Substring(0, Math.Min(200, responseContent.Length))}"
+                };
+            }
+
             if (response.IsSuccessStatusCode)
             {
-                var loginResponse = JsonSerializer.Deserialize<LoginResponse>(responseContent, _jsonOptions);
-                if (loginResponse != null && loginResponse.Success)
+                try
                 {
-                    _currentUser = new User
+                    var loginResponse = JsonSerializer.Deserialize<LoginResponse>(responseContent, _jsonOptions);
+                    if (loginResponse != null && loginResponse.Success)
                     {
-                        Id = loginResponse.User?.Id ?? "",
-                        Username = loginResponse.User?.Username ?? username,
-                        Email = loginResponse.User?.Email ?? "",
-                        Token = loginResponse.Token,
-                        TokenExpiry = loginResponse.ExpiresAt,
-                        Subscription = loginResponse.User?.Subscription
+                        _currentUser = new User
+                        {
+                            Id = loginResponse.User?.Id ?? "",
+                            Username = loginResponse.User?.Username ?? username,
+                            Email = loginResponse.User?.Email ?? "",
+                            Token = loginResponse.Token,
+                            TokenExpiry = loginResponse.ExpiresAt,
+                            Subscription = loginResponse.User?.Subscription
+                        };
+
+                        // Set authorization header for future requests
+                        _httpClient.DefaultRequestHeaders.Clear();
+                        if (!string.IsNullOrEmpty(_currentUser.Token))
+                        {
+                            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_currentUser.Token}");
+                        }
+
+                        return new LoginResult { Success = true, Message = "Đăng nhập thành công" };
+                    }
+                }
+                catch (JsonException jsonEx)
+                {
+                    // JSON parsing error
+                    return new LoginResult
+                    {
+                        Success = false,
+                        Message = $"Lỗi xử lý phản hồi từ server. Vui lòng thử lại sau."
                     };
-
-                    // Set authorization header for future requests
-                    _httpClient.DefaultRequestHeaders.Clear();
-                    _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_currentUser.Token}");
-
-                    return new LoginResult { Success = true, Message = "Đăng nhập thành công" };
                 }
             }
 
-            var errorResponse = JsonSerializer.Deserialize<ErrorResponse>(responseContent, _jsonOptions);
-            return new LoginResult
+            // Xử lý error response
+            try
             {
-                Success = false,
-                Message = errorResponse?.Message ?? "Đăng nhập thất bại. Vui lòng kiểm tra lại thông tin."
-            };
+                var errorResponse = JsonSerializer.Deserialize<ErrorResponse>(responseContent, _jsonOptions);
+                return new LoginResult
+                {
+                    Success = false,
+                    Message = errorResponse?.Message ?? $"Đăng nhập thất bại. (HTTP {response.StatusCode})"
+                };
+            }
+            catch (JsonException)
+            {
+                // Nếu không parse được JSON, trả về message từ response
+                var errorMsg = responseContent.Length > 200 
+                    ? responseContent.Substring(0, 200) + "..." 
+                    : responseContent;
+                return new LoginResult
+                {
+                    Success = false,
+                    Message = $"Đăng nhập thất bại. (HTTP {response.StatusCode}): {errorMsg}"
+                };
+            }
         }
         catch (HttpRequestException ex)
         {
@@ -89,6 +135,14 @@ public class AuthService
             {
                 Success = false,
                 Message = $"Lỗi kết nối: {ex.Message}"
+            };
+        }
+        catch (JsonException jsonEx)
+        {
+            return new LoginResult
+            {
+                Success = false,
+                Message = $"Lỗi xử lý dữ liệu: {jsonEx.Message}"
             };
         }
         catch (Exception ex)
@@ -108,21 +162,41 @@ public class AuthService
         try
         {
             _httpClient.DefaultRequestHeaders.Clear();
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_currentUser!.Token}");
+            if (!string.IsNullOrEmpty(_currentUser!.Token))
+            {
+                _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {_currentUser.Token}");
+            }
 
             var response = await _httpClient.GetAsync("/api/user/profile");
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync();
-                var userResponse = JsonSerializer.Deserialize<UserResponse>(content, _jsonOptions);
                 
-                if (userResponse != null && userResponse.User != null)
+                // Kiểm tra nếu response là JSON
+                if (string.IsNullOrWhiteSpace(content) || 
+                    (!content.TrimStart().StartsWith("{") && !content.TrimStart().StartsWith("[")))
                 {
-                    _currentUser.Id = userResponse.User.Id;
-                    _currentUser.Username = userResponse.User.Username;
-                    _currentUser.Email = userResponse.User.Email;
-                    _currentUser.Subscription = userResponse.User.Subscription;
-                    return true;
+                    Console.WriteLine($"Invalid JSON response when refreshing user info: {content.Substring(0, Math.Min(100, content.Length))}");
+                    return false;
+                }
+
+                try
+                {
+                    var userResponse = JsonSerializer.Deserialize<UserResponse>(content, _jsonOptions);
+                    
+                    if (userResponse != null && userResponse.User != null)
+                    {
+                        _currentUser.Id = userResponse.User.Id;
+                        _currentUser.Username = userResponse.User.Username;
+                        _currentUser.Email = userResponse.User.Email;
+                        _currentUser.Subscription = userResponse.User.Subscription;
+                        return true;
+                    }
+                }
+                catch (JsonException jsonEx)
+                {
+                    Console.WriteLine($"JSON parsing error when refreshing user info: {jsonEx.Message}");
+                    return false;
                 }
             }
         }
