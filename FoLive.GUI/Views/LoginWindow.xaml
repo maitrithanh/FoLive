@@ -16,7 +16,7 @@
 
         <StackPanel Grid.Row="1" VerticalAlignment="Center">
             <StackPanel Margin="0,0,0,15">
-                <TextBlock Text="Username:" Margin="0,0,0,5"/>
+                <TextBlock Text="Email:" Margin="0,0,0,5"/>
                 <TextBox x:Name="UsernameTextBox"/>
             </StackPanel>
 

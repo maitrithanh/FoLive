@@ -104,6 +104,74 @@ public class ConfigService
             Stats = new StreamStats()
         }).ToList();
     }
+
+    /// <summary>
+    /// Gets the API base URL from config or environment variable
+    /// </summary>
+    public string GetApiBaseUrl()
+    {
+        // First check environment variable
+        var envUrl = Environment.GetEnvironmentVariable("FOLIVE_API_BASE_URL");
+        if (!string.IsNullOrWhiteSpace(envUrl))
+        {
+            return envUrl;
+        }
+
+        // Then check config file
+        try
+        {
+            var configDir = Path.GetDirectoryName(_configPath);
+            var apiConfigPath = Path.Combine(configDir ?? "", "api_config.json");
+            if (File.Exists(apiConfigPath))
+            {
+                var json = File.ReadAllText(apiConfigPath);
+                var apiConfig = JsonSerializer.Deserialize<ApiConfig>(json, _jsonOptions);
+                if (apiConfig != null && !string.IsNullOrWhiteSpace(apiConfig.BaseUrl))
+                {
+                    return apiConfig.BaseUrl;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore errors, use default
+        }
+
+        // Default fallback
+        return "https://api.example.com"; // TODO: Update with actual API URL
+    }
+
+    /// <summary>
+    /// Saves the API base URL to config file
+    /// </summary>
+    public async Task SaveApiBaseUrlAsync(string baseUrl)
+    {
+        try
+        {
+            var configDir = Path.GetDirectoryName(_configPath);
+            if (string.IsNullOrEmpty(configDir))
+                return;
+
+            if (!Directory.Exists(configDir))
+            {
+                Directory.CreateDirectory(configDir);
+            }
+
+            var apiConfigPath = Path.Combine(configDir, "api_config.json");
+            var apiConfig = new ApiConfig { BaseUrl = baseUrl };
+            var json = JsonSerializer.Serialize(apiConfig, _jsonOptions);
+            await File.WriteAllTextAsync(apiConfigPath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving API config: {ex.Message}");
+        }
+    }
+}
+
+public class ApiConfig
+{
+    public string BaseUrl { get; set; } = string.Empty;
 }
 
 public class StreamConfig
