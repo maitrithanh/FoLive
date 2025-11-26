@@ -190,6 +190,7 @@ function AddFFmpegBinToPath(BinPath: String): Boolean;
 var
   Paths: String;
   NewPath: String;
+  Dummy: LongWord;
 begin
   Result := False;
   // Get current PATH
@@ -214,7 +215,6 @@ begin
   begin
     Result := True;
     // Broadcast environment change
-    var Dummy: LongWord;
     try
       SendMessageTimeout($FFFF, WM_SETTINGCHANGE, 0, LongInt(PChar('Environment')), SMTO_ABORTIFHUNG, 5000, Dummy);
     except
