@@ -83,37 +83,66 @@ public class StreamManager
             }
 
             stream.Status = StreamStatus.Starting;
+            stream.ErrorMessage = null;
             OnStreamStatusChanged(stream);
 
-            // Build FFmpeg command
-            var command = await _ffmpegService.BuildStreamCommandAsync(
-                stream.Source,
-                stream.SourceType,
-                stream.StreamUrl,
-                stream.StreamKey,
-                stream.Config,
-                _ytDlpService
-            );
+            try
+            {
+                // Build FFmpeg command
+                var command = await _ffmpegService.BuildStreamCommandAsync(
+                    stream.Source,
+                    stream.SourceType,
+                    stream.StreamUrl,
+                    stream.StreamKey,
+                    stream.Config,
+                    _ytDlpService
+                );
 
-            // Start FFmpeg process
-            stream.Process = _ffmpegService.StartStream(command);
-            
-            if (stream.Process == null)
+                if (string.IsNullOrEmpty(command))
+                {
+                    stream.Status = StreamStatus.Error;
+                    stream.ErrorMessage = "Failed to build FFmpeg command. Please check your source and configuration.";
+                    OnStreamStatusChanged(stream);
+                    return false;
+                }
+
+                // Start FFmpeg process
+                stream.Process = _ffmpegService.StartStream(command);
+                
+                if (stream.Process == null)
+                {
+                    stream.Status = StreamStatus.Error;
+                    stream.ErrorMessage = "Failed to start FFmpeg process. Please check if FFmpeg is installed and accessible.";
+                    OnStreamStatusChanged(stream);
+                    return false;
+                }
+
+                // Check if process started successfully
+                if (stream.Process.HasExited)
+                {
+                    stream.Status = StreamStatus.Error;
+                    stream.ErrorMessage = $"FFmpeg process exited immediately with code {stream.Process.ExitCode}. Please check your stream URL and key.";
+                    OnStreamStatusChanged(stream);
+                    return false;
+                }
+
+                stream.Status = StreamStatus.Running;
+                stream.StartTime = DateTime.Now;
+                stream.ErrorMessage = null;
+                OnStreamStatusChanged(stream);
+
+                // Monitor process
+                _ = Task.Run(async () => await MonitorStreamAsync(stream));
+
+                return true;
+            }
+            catch (Exception ex)
             {
                 stream.Status = StreamStatus.Error;
-                stream.ErrorMessage = "Failed to start FFmpeg process";
+                stream.ErrorMessage = $"Error starting stream: {ex.Message}";
                 OnStreamStatusChanged(stream);
                 return false;
             }
-
-            stream.Status = StreamStatus.Running;
-            stream.StartTime = DateTime.Now;
-            OnStreamStatusChanged(stream);
-
-            // Monitor process
-            _ = Task.Run(async () => await MonitorStreamAsync(stream));
-
-            return true;
         }
         finally
         {

@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
 
@@ -239,6 +240,13 @@ public class FFmpegService
     {
         try
         {
+            // Check if FFmpeg exists
+            if (string.IsNullOrEmpty(_ffmpegPath) || (!File.Exists(_ffmpegPath) && _ffmpegPath != "ffmpeg"))
+            {
+                throw new FileNotFoundException($"FFmpeg not found at: {_ffmpegPath}. Please ensure FFmpeg is installed and in your PATH.");
+            }
+
+            var errorOutput = new StringBuilder();
             var process = new Process
             {
                 StartInfo = new ProcessStartInfo
@@ -251,7 +259,29 @@ public class FFmpegService
                     CreateNoWindow = true
                 }
             };
+            
+            process.ErrorDataReceived += (sender, e) =>
+            {
+                if (!string.IsNullOrEmpty(e.Data))
+                {
+                    errorOutput.AppendLine(e.Data);
+                }
+            };
+            
             process.Start();
+            process.BeginErrorReadLine();
+            
+            // Wait a bit to check if process exits immediately (indicates error)
+            Thread.Sleep(1000);
+            if (process.HasExited)
+            {
+                var error = errorOutput.ToString();
+                var errorMsg = string.IsNullOrEmpty(error) 
+                    ? $"FFmpeg exited with code {process.ExitCode}" 
+                    : $"FFmpeg exited with code {process.ExitCode}. Error: {error}";
+                throw new Exception(errorMsg);
+            }
+            
             return process;
         }
         catch (Exception ex)

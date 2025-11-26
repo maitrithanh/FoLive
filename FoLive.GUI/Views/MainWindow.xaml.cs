@@ -92,6 +92,16 @@ public partial class MainWindow : Window
             {
                 var index = _streams.IndexOf(existing);
                 _streams[index] = e.Stream;
+                
+                // Show error message if status is Error
+                if (e.Stream.Status == StreamStatus.Error && !string.IsNullOrEmpty(e.Stream.ErrorMessage))
+                {
+                    MessageBox.Show(
+                        $"Stream '{e.Stream.StreamId}' Error:\n\n{e.Stream.ErrorMessage}",
+                        "Stream Error",
+                        MessageBoxButton.OK,
+                        MessageBoxImage.Error);
+                }
             }
         });
     }
@@ -115,9 +125,37 @@ public partial class MainWindow : Window
     {
         if (sender is System.Windows.Controls.Button button && button.Tag is string streamId)
         {
-            await _streamManager.StartStreamAsync(streamId);
-            await RefreshStreams();
-            StatusText.Text = $"Stream {streamId} started";
+            try
+            {
+                var success = await _streamManager.StartStreamAsync(streamId);
+                await RefreshStreams();
+                
+                // Get updated stream to check for errors
+                var stream = await _streamManager.GetStreamAsync(streamId);
+                
+                if (success && stream != null && stream.Status == StreamStatus.Running)
+                {
+                    StatusText.Text = $"Stream {streamId} started successfully";
+                }
+                else if (stream != null && stream.Status == StreamStatus.Error)
+                {
+                    // Error message will be shown by OnStreamStatusChanged
+                    StatusText.Text = $"Stream {streamId} failed to start";
+                }
+                else
+                {
+                    StatusText.Text = $"Stream {streamId} failed to start";
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(
+                    $"Error starting stream '{streamId}':\n\n{ex.Message}",
+                    "Error",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                StatusText.Text = $"Error starting stream {streamId}";
+            }
         }
     }
 
