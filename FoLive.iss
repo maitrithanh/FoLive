@@ -66,6 +66,12 @@ begin
   Result := FileExists(ExpandConstant('{tmp}\ffmpeg.zip'));
 end;
 
+function AddFFmpegBinToPath(BinPath: String): Boolean;
+forward;
+
+procedure AddFFmpegToPath();
+forward;
+
 function InitializeSetup(): Boolean;
 var
   ResultCode: Integer;
@@ -179,7 +185,8 @@ var
 begin
   Result := False;
   // Get current PATH
-  RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', Paths);
+  if not RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', Paths) then
+    Paths := '';
   
   // Check if already in PATH
   if Pos(BinPath, Paths) > 0 then
@@ -206,7 +213,6 @@ end;
 procedure AddFFmpegToPath();
 var
   FFmpegPath: String;
-  ResultCode: Integer;
 begin
   // Check common installation paths and add to PATH if found
   FFmpegPath := ExpandConstant('{pf}\ffmpeg\bin');
