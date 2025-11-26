@@ -156,23 +156,23 @@ jobs:
         body: |
           ## FoLive Release ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
           
-          ### 📦 Download
+          ### Download
           
-          **Tải ngay file .exe:**
-          - **[FoLive.exe](FoLive.exe)** - Standalone executable (no Python required)
+          **Tai ngay file .exe:**
+          - **FoLive.exe** - Standalone executable (no Python required)
           
-          ### 🚀 Quick Start
+          ### Quick Start
           
           1. Download file **FoLive.exe**
-          2. Double-click để chạy ngay!
+          2. Double-click de chay ngay!
           
-          ### ✨ Features
-          - ✅ Windows Desktop GUI Application
-          - ✅ Standalone executable (no Python required)
-          - ✅ Auto-install FFmpeg if possible
-          - ✅ All dependencies included
+          ### Features
+          - Windows Desktop GUI Application
+          - Standalone executable (no Python required)
+          - Auto-install FFmpeg if possible
+          - All dependencies included
           
-          ### 📋 Requirements
+          ### Requirements
           - Windows 10/11
           - FFmpeg (will be auto-installed if possible)
           - No Python installation needed!
