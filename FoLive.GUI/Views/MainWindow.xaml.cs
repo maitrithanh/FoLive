@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Threading;
 using FoLive.Core.Models;
 using FoLive.Core.Services;
+using FoLive.ViewModels;
 using StreamModel = FoLive.Core.Models.Stream;
 
 namespace FoLive.Views;
@@ -14,7 +15,7 @@ public partial class MainWindow : Window
 {
     private readonly StreamManager _streamManager;
     private readonly FFmpegService _ffmpegService;
-    private readonly ObservableCollection<StreamModel> _streams;
+    private readonly ObservableCollection<StreamViewModel> _streams;
     private readonly DispatcherTimer _refreshTimer;
 
     public MainWindow()
@@ -23,7 +24,7 @@ public partial class MainWindow : Window
         
         _streamManager = new StreamManager();
         _ffmpegService = new FFmpegService();
-        _streams = new ObservableCollection<StreamModel>();
+        _streams = new ObservableCollection<StreamViewModel>();
         
         StreamsDataGrid.ItemsSource = _streams;
         
@@ -37,30 +38,21 @@ public partial class MainWindow : Window
         _refreshTimer.Tick += RefreshTimer_Tick;
         _refreshTimer.Start();
         
-        // Setup time display timer
-        var timeTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromSeconds(1)
-        };
-        timeTimer.Tick += (s, e) => TimeText.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-        timeTimer.Start();
-        
         Loaded += MainWindow_Loaded;
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        await CheckSystemStatus();
+        // Load saved configuration
+        await _streamManager.LoadConfigAsync();
         await RefreshStreams();
+        await CheckSystemStatus();
     }
 
     private async Task CheckSystemStatus()
     {
         var ffmpegOk = _ffmpegService.CheckFFmpeg();
-        FFmpegStatus.Text = ffmpegOk ? "FFmpeg: ✅ OK" : "FFmpeg: ❌ Not Found";
-        
-        var streams = await _streamManager.GetAllStreamsAsync();
-        StreamsCount.Text = $"Streams: {streams.Count}";
+        // Status will be shown in footer or removed if not needed
     }
 
     private async Task RefreshStreams()
@@ -69,10 +61,43 @@ public partial class MainWindow : Window
         
         Application.Current.Dispatcher.Invoke(() =>
         {
-            _streams.Clear();
+            // Update existing or add new
+            var existingIds = _streams.Select(s => s.StreamId).ToList();
+            var newIds = streams.Select(s => s.StreamId).ToList();
+            
+            // Remove deleted streams
+            var toRemove = _streams.Where(s => !newIds.Contains(s.StreamId)).ToList();
+            foreach (var item in toRemove)
+            {
+                _streams.Remove(item);
+            }
+            
+            // Update or add streams
+            int index = 1;
             foreach (var stream in streams)
             {
-                _streams.Add(stream);
+                var existing = _streams.FirstOrDefault(s => s.StreamId == stream.StreamId);
+                if (existing != null)
+                {
+                    existing.Update(stream);
+                    if (existing.Index != index)
+                    {
+                        existing.Index = index;
+                    }
+                }
+                else
+                {
+                    _streams.Add(new StreamViewModel(stream, index));
+                }
+                index++;
+            }
+            
+            // Sort by index
+            var sorted = _streams.OrderBy(s => s.Index).ToList();
+            _streams.Clear();
+            foreach (var item in sorted)
+            {
+                _streams.Add(item);
             }
         });
     }
@@ -90,8 +115,10 @@ public partial class MainWindow : Window
             var existing = _streams.FirstOrDefault(s => s.StreamId == e.Stream.StreamId);
             if (existing != null)
             {
+                existing.Update(e.Stream);
+                // Trigger property change notification
                 var index = _streams.IndexOf(existing);
-                _streams[index] = e.Stream;
+                _streams[index] = existing;
                 
                 // Show error message if status is Error
                 if (e.Stream.Status == StreamStatus.Error && !string.IsNullOrEmpty(e.Stream.ErrorMessage))
@@ -116,7 +143,6 @@ public partial class MainWindow : Window
             {
                 await _streamManager.AddStreamAsync(stream);
                 await RefreshStreams();
-                StatusText.Text = $"Stream {stream.StreamId} added";
             }
         }
     }
@@ -133,19 +159,7 @@ public partial class MainWindow : Window
                 // Get updated stream to check for errors
                 var stream = await _streamManager.GetStreamAsync(streamId);
                 
-                if (success && stream != null && stream.Status == StreamStatus.Running)
-                {
-                    StatusText.Text = $"Stream {streamId} started successfully";
-                }
-                else if (stream != null && stream.Status == StreamStatus.Error)
-                {
-                    // Error message will be shown by OnStreamStatusChanged
-                    StatusText.Text = $"Stream {streamId} failed to start";
-                }
-                else
-                {
-                    StatusText.Text = $"Stream {streamId} failed to start";
-                }
+                // Status will be updated via OnStreamStatusChanged
             }
             catch (Exception ex)
             {
@@ -154,7 +168,6 @@ public partial class MainWindow : Window
                     "Error",
                     MessageBoxButton.OK,
                     MessageBoxImage.Error);
-                StatusText.Text = $"Error starting stream {streamId}";
             }
         }
     }
@@ -165,7 +178,6 @@ public partial class MainWindow : Window
         {
             await _streamManager.StopStreamAsync(streamId);
             await RefreshStreams();
-            StatusText.Text = $"Stream {streamId} stopped";
         }
     }
 
@@ -183,14 +195,93 @@ public partial class MainWindow : Window
             {
                 await _streamManager.RemoveStreamAsync(streamId);
                 await RefreshStreams();
-                StatusText.Text = $"Stream {streamId} deleted";
             }
         }
     }
 
-    private void Settings_Click(object sender, RoutedEventArgs e)
+    private async void AddScreenStream_Click(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show("Settings dialog - To be implemented", "Settings", MessageBoxButton.OK);
+        var dialog = new AddStreamDialog();
+        // Pre-select screen capture type
+        if (dialog.ShowDialog() == true)
+        {
+            var stream = dialog.GetStream();
+            if (stream != null)
+            {
+                stream.SourceType = "screen";
+                stream.Source = "desktop";
+                await _streamManager.AddStreamAsync(stream);
+                await RefreshStreams();
+            }
+        }
+    }
+
+    private async void StartAllStreams_Click(object sender, RoutedEventArgs e)
+    {
+        var streams = await _streamManager.GetAllStreamsAsync();
+        foreach (var stream in streams)
+        {
+            if (stream.Status != StreamStatus.Running)
+            {
+                await _streamManager.StartStreamAsync(stream.StreamId);
+            }
+        }
+        await RefreshStreams();
+    }
+
+    private async void StopAllStreams_Click(object sender, RoutedEventArgs e)
+    {
+        var streams = await _streamManager.GetAllStreamsAsync();
+        foreach (var stream in streams)
+        {
+            if (stream.Status == StreamStatus.Running)
+            {
+                await _streamManager.StopStreamAsync(stream.StreamId);
+            }
+        }
+        await RefreshStreams();
+    }
+
+    private void ViewLog_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button button && button.Tag is string streamId)
+        {
+            MessageBox.Show($"Log viewer for stream '{streamId}' - To be implemented", "View Log", MessageBoxButton.OK);
+        }
+    }
+
+    private async void EditStream_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is System.Windows.Controls.Button button && button.Tag is string streamId)
+        {
+            var stream = await _streamManager.GetStreamAsync(streamId);
+            if (stream != null)
+            {
+                var dialog = new AddStreamDialog();
+                // TODO: Pre-fill dialog with stream data
+                if (dialog.ShowDialog() == true)
+                {
+                    var updatedStream = dialog.GetStream();
+                    if (updatedStream != null)
+                    {
+                        // Remove old and add new
+                        await _streamManager.RemoveStreamAsync(streamId);
+                        await _streamManager.AddStreamAsync(updatedStream);
+                        await RefreshStreams();
+                    }
+                }
+            }
+        }
+    }
+
+    private void ChangePassword_Click(object sender, RoutedEventArgs e)
+    {
+        MessageBox.Show("Change password - To be implemented", "Change Password", MessageBoxButton.OK);
+    }
+
+    private void Renew_Click(object sender, RoutedEventArgs e)
+    {
+        MessageBox.Show("Renew subscription - To be implemented", "Renew", MessageBoxButton.OK);
     }
 
     protected override void OnClosed(EventArgs e)

@@ -112,6 +112,22 @@ public class FFmpegService
         Dictionary<string, object> config,
         YtDlpService? ytDlpService = null)
     {
+        // Validate required parameters
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            throw new ArgumentException("Source cannot be empty");
+        }
+        
+        if (string.IsNullOrWhiteSpace(streamUrl))
+        {
+            throw new ArgumentException("Stream URL cannot be empty");
+        }
+        
+        if (string.IsNullOrWhiteSpace(streamKey))
+        {
+            throw new ArgumentException("Stream Key cannot be empty");
+        }
+
         var args = new StringBuilder();
         var useRender = config.TryGetValue("use_render", out var render) && render is bool renderValue && renderValue;
         var loop = config.TryGetValue("loop", out var loopValue) && loopValue is bool loopBool && loopBool;
@@ -122,13 +138,17 @@ public class FFmpegService
         switch (sourceType.ToLower())
         {
             case "file":
+                if (!File.Exists(source))
+                {
+                    throw new FileNotFoundException($"Source file not found: {source}");
+                }
                 if (loop)
                 {
-                    args.Append($"-re -stream_loop -1 -i \"{source}\"");
+                    args.Append($"-re -stream_loop -1 -i \"{source}\" ");
                 }
                 else
                 {
-                    args.Append($"-re -i \"{source}\"");
+                    args.Append($"-re -i \"{source}\" ");
                 }
                 break;
             case "youtube":
@@ -142,21 +162,21 @@ public class FFmpegService
                     if (!string.IsNullOrEmpty(streamUrlFromYtDlp))
                     {
                         inputSource = streamUrlFromYtDlp;
-                        args.Append($"-re -i \"{inputSource}\"");
+                        args.Append($"-re -i \"{inputSource}\" ");
                     }
                     else
                     {
                         // Fallback to direct URL
-                        args.Append($"-re -i \"{source}\"");
+                        args.Append($"-re -i \"{source}\" ");
                     }
                 }
                 else
                 {
-                    args.Append($"-re -i \"{source}\"");
+                    args.Append($"-re -i \"{source}\" ");
                 }
                 break;
             case "screen":
-                args.Append($"-f gdigrab -framerate 30 -i desktop");
+                args.Append($"-f gdigrab -framerate 30 -i desktop ");
                 break;
             default:
                 // Generic URL - try yt-dlp first
@@ -165,16 +185,16 @@ public class FFmpegService
                     var streamUrlFromYtDlp = await ytDlpService.GetStreamUrlAsync(source);
                     if (!string.IsNullOrEmpty(streamUrlFromYtDlp))
                     {
-                        args.Append($"-re -i \"{streamUrlFromYtDlp}\"");
+                        args.Append($"-re -i \"{streamUrlFromYtDlp}\" ");
                     }
                     else
                     {
-                        args.Append($"-re -i \"{source}\"");
+                        args.Append($"-re -i \"{source}\" ");
                     }
                 }
                 else
                 {
-                    args.Append($"-re -i \"{source}\"");
+                    args.Append($"-re -i \"{source}\" ");
                 }
                 break;
         }
@@ -194,19 +214,21 @@ public class FFmpegService
 
         if (config.TryGetValue("text", out var text) && text is string textValue && !string.IsNullOrEmpty(textValue))
         {
-            filters.Add($"drawtext=text='{textValue}':fontsize=24:fontcolor=white:x=10:y=10");
+            // Escape single quotes in text
+            var escapedText = textValue.Replace("'", "\\'");
+            filters.Add($"drawtext=text='{escapedText}':fontsize=24:fontcolor=white:x=10:y=10");
         }
 
         // Apply filters
         if (filters.Count > 0)
         {
-            args.Append($"-vf \"{string.Join(",", filters)}\"");
+            args.Append($"-vf \"{string.Join(",", filters)}\" ");
         }
 
         // Audio filters
         if (config.TryGetValue("volume", out var volume) && volume is double volumeValue && volumeValue != 1.0)
         {
-            args.Append($"-af volume={volumeValue}");
+            args.Append($"-af volume={volumeValue} ");
         }
 
         // Use render or direct stream
@@ -221,19 +243,19 @@ public class FFmpegService
                 ? presetStr
                 : "veryfast";
 
-            args.Append($"-c:v libx264 -preset {preset} -b:v {bitrate}");
-            args.Append($"-c:a aac -b:a 128k");
+            args.Append($"-c:v libx264 -preset {preset} -b:v {bitrate} ");
+            args.Append($"-c:a aac -b:a 128k ");
         }
         else
         {
             // Direct stream - no encoding (lighter)
-            args.Append($"-c copy");
+            args.Append($"-c copy ");
         }
 
-        args.Append($"-f flv");
-        args.Append($"\"{streamUrl}/{streamKey}\"");
+        args.Append($"-f flv ");
+        args.Append($"\"{streamUrl.TrimEnd('/')}/{streamKey}\"");
 
-        return args.ToString();
+        return args.ToString().Trim();
     }
 
     public Process? StartStream(string command)

@@ -14,14 +14,49 @@ public class StreamManager
     private readonly SemaphoreSlim _lock = new(1, 1);
     private readonly FFmpegService _ffmpegService;
     private readonly YtDlpService _ytDlpService;
+    private readonly ConfigService _configService;
 
-    public StreamManager()
+    public StreamManager(ConfigService? configService = null)
     {
         _ffmpegService = new FFmpegService();
         _ytDlpService = new YtDlpService();
+        _configService = configService ?? new ConfigService();
     }
 
     public event EventHandler<StreamEventArgs>? StreamStatusChanged;
+    
+    public async Task LoadConfigAsync()
+    {
+        var configs = await _configService.LoadStreamsAsync();
+        var streams = _configService.ConvertConfigsToStreams(configs);
+        
+        await _lock.WaitAsync();
+        try
+        {
+            foreach (var stream in streams)
+            {
+                _streams[stream.StreamId] = stream;
+            }
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+    
+    private async Task SaveConfigAsync()
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            var streams = _streams.Values.ToList();
+            await _configService.SaveStreamsAsync(streams);
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
 
     public async Task<bool> AddStreamAsync(StreamModel stream)
     {
@@ -35,6 +70,7 @@ public class StreamManager
 
             _streams[stream.StreamId] = stream;
             OnStreamStatusChanged(stream);
+            await SaveConfigAsync();
             return true;
         }
         finally
@@ -59,6 +95,7 @@ public class StreamManager
             }
 
             _streams.Remove(streamId);
+            await SaveConfigAsync();
             return true;
         }
         finally
