@@ -49,10 +49,11 @@ public partial class MainWindow : Window
         await CheckSystemStatus();
     }
 
-    private async Task CheckSystemStatus()
+    private Task CheckSystemStatus()
     {
         var ffmpegOk = _ffmpegService.CheckFFmpeg();
         // Status will be shown in footer or removed if not needed
+        return Task.CompletedTask;
     }
 
     private async Task RefreshStreams()

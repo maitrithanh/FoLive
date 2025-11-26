@@ -109,16 +109,16 @@ public partial class AddStreamDialog : Window
         
         // Get resolution
         string resolution = "1280x720"; // Default
-        if (ResolutionComboBox.SelectedItem is ComboBoxItem item && item.Content is string content)
+        if (ResolutionComboBox.SelectedItem is ComboBoxItem resItem && resItem.Content is string resContent)
         {
-            if (content == "Custom")
+            if (resContent == "Custom")
             {
                 resolution = CustomResolutionTextBox.Text.Trim();
             }
             else
             {
                 // Extract resolution from text like "1920x1080 (Full HD)"
-                var match = System.Text.RegularExpressions.Regex.Match(content, @"(\d+x\d+)");
+                var match = System.Text.RegularExpressions.Regex.Match(resContent, @"(\d+x\d+)");
                 if (match.Success)
                 {
                     resolution = match.Groups[1].Value;
