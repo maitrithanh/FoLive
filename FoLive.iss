@@ -61,13 +61,9 @@ var
   DependenciesPage: TOutputProgressWizardPage;
   FFmpegInstalled: Boolean;
 
-// Windows API declarations
-const
-  WM_SETTINGCHANGE = $001A;
-  SMTO_ABORTIFHUNG = $0002;
-
-procedure SendMessageTimeout(hWnd: LongWord; Msg: LongWord; wParam: LongWord; lParam: LongInt; fuFlags: LongWord; uTimeout: LongWord; var lpdwResult: LongWord);
-external 'SendMessageTimeoutW@user32.dll stdcall';
+// Note: PATH changes are written to registry
+// New processes will automatically pick up the updated PATH
+// Existing processes may need to be restarted
 
 function FFmpegZipExists(): Boolean;
 begin
@@ -190,7 +186,6 @@ function AddFFmpegBinToPath(BinPath: String): Boolean;
 var
   Paths: String;
   NewPath: String;
-  Dummy: LongWord;
 begin
   Result := False;
   // Get current PATH
@@ -214,12 +209,9 @@ begin
   if RegWriteStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', NewPath) then
   begin
     Result := True;
-    // Broadcast environment change
-    try
-      SendMessageTimeout($FFFF, WM_SETTINGCHANGE, 0, LongInt(PChar('Environment')), SMTO_ABORTIFHUNG, 5000, Dummy);
-    except
-      // Ignore errors
-    end;
+    // PATH is now updated in registry
+    // New processes will automatically use the updated PATH
+    // Existing processes may need to be restarted to see the change
   end;
 end;
 
