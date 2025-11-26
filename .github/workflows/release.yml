@@ -24,11 +24,10 @@ jobs:
       with:
         fetch-depth: 0
     
-    - name: Set up Python
-      uses: actions/setup-python@v4
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
       with:
-        python-version: '3.10'
-        cache: 'pip'
+        dotnet-version: '8.0.x'
     
     - name: Install system dependencies
       shell: powershell
@@ -43,109 +42,32 @@ jobs:
         }
       continue-on-error: true
     
-    - name: Install Python dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pyinstaller
+    - name: Restore dependencies
+      run: dotnet restore
     
-    - name: Create FoLive.spec if missing
-      shell: powershell
-      run: |
-        if (-not (Test-Path "FoLive.spec")) {
-          Write-Host "Creating FoLive.spec file..."
-          $lines = @(
-            "# -*- mode: python ; coding: utf-8 -*-",
-            "",
-            "block_cipher = None",
-            "",
-            "a = Analysis(",
-            "    ['run.py'],",
-            "    pathex=[],",
-            "    binaries=[],",
-            "    datas=[",
-            "        ('env.example', '.'),",
-            "    ],",
-            "    hiddenimports=[",
-            "        'tkinter',",
-            "        'tkinter.ttk',",
-            "        'tkinter.filedialog',",
-            "        'tkinter.messagebox',",
-            "        'tkinter.scrolledtext',",
-            "        'yt_dlp',",
-            "        'pydub',",
-            "        'dotenv',",
-            "        'requests',",
-            "        'psutil',",
-            "    ],",
-            "    hookspath=[],",
-            "    hooksconfig={},",
-            "    runtime_hooks=[],",
-            "    excludes=[],",
-            "    win_no_prefer_redirects=False,",
-            "    win_private_assemblies=False,",
-            "    cipher=block_cipher,",
-            "    noarchive=False,",
-            ")",
-            "",
-            "pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)",
-            "",
-            "exe = EXE(",
-            "    pyz,",
-            "    a.scripts,",
-            "    a.binaries,",
-            "    a.zipfiles,",
-            "    a.datas,",
-            "    [],",
-            "    name='FoLive',",
-            "    debug=False,",
-            "    bootloader_ignore_signals=False,",
-            "    strip=False,",
-            "    upx=True,",
-            "    upx_exclude=[],",
-            "    runtime_tmpdir=None,",
-            "    console=False,",
-            "    icon=None,",
-            "    disable_windowed_traceback=False,",
-            "    argv_emulation=False,",
-            "    target_arch=None,",
-            "    codesign_identity=None,",
-            "    entitlements_file=None,",
-            ")"
-          )
-          $lines | Out-File -FilePath "FoLive.spec" -Encoding utf8
-          Write-Host "[OK] FoLive.spec created"
-        } else {
-          Write-Host "[OK] FoLive.spec already exists"
-        }
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
     
-    - name: Build executable
-      shell: powershell
+    - name: Publish executable
       run: |
-        Write-Host "Building executable..."
-        python -m PyInstaller --clean --noconfirm FoLive.spec
-        if ($LASTEXITCODE -ne 0) {
-          Write-Host "[ERROR] Build failed!"
-          exit 1
-        }
-        if (Test-Path "dist\FoLive.exe") {
-          $fileSize = (Get-Item "dist\FoLive.exe").Length / 1MB
-          Write-Host "[OK] Build successful! File size: $([math]::Round($fileSize, 2)) MB"
-        } else {
-          Write-Host "[ERROR] FoLive.exe not found!"
-          Write-Host "Contents of dist folder:"
-          Get-ChildItem "dist" | ForEach-Object { Write-Host "  $($_.Name)" }
-          exit 1
-        }
+        dotnet publish FoLive.GUI/FoLive.GUI.csproj `
+          --configuration Release `
+          --runtime win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=true `
+          -p:IncludeNativeLibrariesForSelfExtract=true `
+          -p:EnableCompressionInSingleFile=true `
+          --no-build
     
     - name: Verify executable exists
       shell: powershell
       run: |
-        if (-not (Test-Path "dist\FoLive.exe")) {
+        $exePath = "FoLive.GUI\bin\Release\net8.0-windows\win-x64\publish\FoLive.exe"
+        if (-not (Test-Path $exePath)) {
           Write-Host "[ERROR] FoLive.exe not found!"
           exit 1
         }
-        $file = Get-Item "dist\FoLive.exe"
+        $file = Get-Item $exePath
         $size = $file.Length / 1MB
         Write-Host "[OK] FoLive.exe ready for release"
         Write-Host "     Path: $($file.FullName)"
@@ -157,8 +79,7 @@ jobs:
         Write-Host "Installing Inno Setup..."
         $ErrorActionPreference = "Continue"
         
-        # Method 1: Try Chocolatey (most reliable on GitHub Actions)
-        Write-Host "Trying Chocolatey..."
+        # Try Chocolatey
         try {
           choco install innosetup -y --no-progress
           if ($LASTEXITCODE -eq 0) {
@@ -166,58 +87,16 @@ jobs:
             exit 0
           }
         } catch {
-          Write-Host "[WARNING] Chocolatey failed: $_"
+          Write-Host "[WARNING] Chocolatey failed"
         }
         
-        # Method 2: Try winget
-        Write-Host "Trying winget..."
+        # Try winget
         try {
           winget install --id JRSoftware.InnoSetup -e --accept-source-agreements --accept-package-agreements --silent
           Start-Sleep -Seconds 5
-          if ($LASTEXITCODE -eq 0) {
-            Write-Host "[OK] Inno Setup installed via winget"
-            exit 0
-          }
+          Write-Host "[OK] Inno Setup installed via winget"
         } catch {
-          Write-Host "[WARNING] winget failed: $_"
-        }
-        
-        # Method 3: Download and install manually
-        Write-Host "Trying manual download..."
-        try {
-          $installerUrl = "https://files.jrsoftware.org/is/6/innosetup-6.2.2.exe"
-          $installerPath = "$env:TEMP\innosetup-installer.exe"
-          Write-Host "Downloading from $installerUrl..."
-          Invoke-WebRequest -Uri $installerUrl -OutFile $installerPath
-          Write-Host "Installing..."
-          Start-Process -FilePath $installerPath -ArgumentList "/SILENT", "/SUPPRESSMSGBOXES" -Wait
-          Start-Sleep -Seconds 3
-          Write-Host "[OK] Inno Setup installed via manual download"
-        } catch {
-          Write-Host "[ERROR] All installation methods failed: $_"
-          Write-Host "Setup installer will not be built, only portable .exe will be released"
-        }
-        
-        # Verify installation
-        $isccPaths = @(
-          "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
-          "C:\Program Files\Inno Setup 6\ISCC.exe",
-          "C:\Program Files (x86)\Inno Setup 5\ISCC.exe",
-          "C:\Program Files\Inno Setup 5\ISCC.exe"
-        )
-        
-        $found = $false
-        foreach ($path in $isccPaths) {
-          if (Test-Path $path) {
-            Write-Host "[OK] Verified Inno Setup at: $path"
-            $found = $true
-            break
-          }
-        }
-        
-        if (-not $found) {
-          Write-Host "[WARNING] Inno Setup not found after installation"
-          Write-Host "          Setup installer will not be built"
+          Write-Host "[WARNING] winget failed"
         }
       continue-on-error: true
     
@@ -227,7 +106,7 @@ jobs:
         Write-Host "Building Windows Setup Installer..."
         $ErrorActionPreference = "Continue"
         
-        # Tìm Inno Setup compiler
+        # Find Inno Setup
         $isccPaths = @(
           "C:\Program Files (x86)\Inno Setup 6\ISCC.exe",
           "C:\Program Files\Inno Setup 6\ISCC.exe",
@@ -246,18 +125,10 @@ jobs:
         
         if (-not $iscc) {
           Write-Host "[WARNING] Inno Setup not found, skipping setup build"
-          Write-Host "          Only portable .exe will be released"
-          Write-Host "          This is OK - portable version will still work"
           exit 0
         }
         
-        # Kiểm tra file .iss có tồn tại không
-        if (-not (Test-Path "FoLive.iss")) {
-          Write-Host "[WARNING] FoLive.iss not found, skipping setup build"
-          exit 0
-        }
-        
-        # Update version in .iss file
+        # Get version
         $version = "${{ github.event.inputs.version }}"
         if ($version -match "^v") {
           $version = $version.Substring(1)
@@ -273,37 +144,37 @@ jobs:
         }
         
         Write-Host "Building installer for version: $version"
-        Write-Host "Using ISCC: $iscc"
-        Write-Host "ISS file: FoLive.iss"
         
-        # Build installer với error handling tốt hơn
-        try {
-          $process = Start-Process -FilePath $iscc -ArgumentList "FoLive.iss", "/DAppVersion=$version" -Wait -PassThru -NoNewWindow
-          
-          if ($process.ExitCode -eq 0) {
-            Write-Host "[OK] ISCC completed successfully"
-          } else {
-            Write-Host "[WARNING] ISCC exited with code: $($process.ExitCode)"
-          }
-        } catch {
-          Write-Host "[ERROR] Failed to run ISCC: $_"
-          Write-Host "        Setup build failed, continuing with portable .exe only"
+        # Build installer
+        & $iscc "FoLive.iss" /DAppVersion=$version
+        if ($LASTEXITCODE -ne 0) {
+          Write-Host "[WARNING] Setup build failed"
           exit 0
         }
         
-        # Kiểm tra file đã được tạo
-        Start-Sleep -Seconds 2
         if (Test-Path "dist\FoLive-Setup.exe") {
           $setupFile = Get-Item "dist\FoLive-Setup.exe"
           $setupSize = $setupFile.Length / 1MB
           Write-Host "[OK] Setup installer built successfully!"
           Write-Host "     File: $($setupFile.FullName)"
           Write-Host "     Size: $([math]::Round($setupSize, 2)) MB"
-        } else {
-          Write-Host "[WARNING] Setup file not found after build"
-          Write-Host "          Checking dist folder contents:"
-          Get-ChildItem "dist" | ForEach-Object { Write-Host "    $($_.Name)" }
-          Write-Host "          Only portable .exe will be released"
+        }
+    
+    - name: Prepare release files
+      shell: powershell
+      run: |
+        Write-Host "Preparing release files..."
+        $exePath = "FoLive.GUI\bin\Release\net8.0-windows\win-x64\publish\FoLive.exe"
+        $setupPath = "dist\FoLive-Setup.exe"
+        
+        if (Test-Path $exePath) {
+          $size = (Get-Item $exePath).Length / 1MB
+          Write-Host "[OK] FoLive.exe ready ($([math]::Round($size, 2)) MB)"
+        }
+        
+        if (Test-Path $setupPath) {
+          $size = (Get-Item $setupPath).Length / 1MB
+          Write-Host "[OK] FoLive-Setup.exe ready ($([math]::Round($size, 2)) MB)"
         }
     
     - name: Create tag (if workflow_dispatch)
@@ -323,42 +194,12 @@ jobs:
         git push origin "$tagName"
         Write-Host "[OK] Tag $tagName created and pushed"
     
-    - name: Prepare release files
-      shell: powershell
-      run: |
-        Write-Host "Preparing release files..."
-        $files = @()
-        
-        if (Test-Path "dist\FoLive.exe") {
-          $files += "dist\FoLive.exe"
-          $size = (Get-Item "dist\FoLive.exe").Length / 1MB
-          Write-Host "[OK] FoLive.exe ready ($([math]::Round($size, 2)) MB)"
-        } else {
-          Write-Host "[ERROR] FoLive.exe not found!"
-          exit 1
-        }
-        
-        if (Test-Path "dist\FoLive-Setup.exe") {
-          $files += "dist\FoLive-Setup.exe"
-          $size = (Get-Item "dist\FoLive-Setup.exe").Length / 1MB
-          Write-Host "[OK] FoLive-Setup.exe ready ($([math]::Round($size, 2)) MB)"
-        } else {
-          Write-Host "[WARNING] FoLive-Setup.exe not found"
-          Write-Host "          Only portable .exe will be released"
-        }
-        
-        Write-Host ""
-        Write-Host "Total files to upload: $($files.Count)"
-        foreach ($file in $files) {
-          Write-Host "  - $file"
-        }
-    
     - name: Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          dist/FoLive.exe
+          FoLive.GUI/bin/Release/net8.0-windows/win-x64/publish/FoLive.exe
           dist/FoLive-Setup.exe
         fail_on_unmatched_files: false
         body: |
@@ -368,19 +209,17 @@ jobs:
           
           **Chọn một trong hai:**
           
-          #### 🎯 Setup Installer (Khuyến nghị - Giống app bình thường)
+          #### 🎯 Setup Installer (Khuyến nghị)
           - **FoLive-Setup.exe** - Windows Installer với wizard cài đặt
             - ✅ Cài đặt vào Program Files
             - ✅ Tạo shortcut Start Menu & Desktop
             - ✅ Tự động kiểm tra FFmpeg
             - ✅ Gỡ cài đặt dễ dàng
-            - ✅ Giống các phần mềm Windows thông thường
           
           #### 🚀 Portable Version
           - **FoLive.exe** - Standalone executable (portable)
             - ✅ Không cần cài đặt
             - ✅ Chạy trực tiếp từ bất kỳ đâu
-            - ✅ Phù hợp cho USB drive
           
           ### 🚀 Quick Start
           
@@ -388,21 +227,19 @@ jobs:
           1. Download **FoLive-Setup.exe**
           2. Double-click để chạy installer
           3. Làm theo wizard cài đặt
-          4. Chạy từ Start Menu hoặc Desktop shortcut
           
           **Với Portable:**
           1. Download **FoLive.exe**
           2. Double-click để chạy ngay!
           
           ### ✨ Features
-          - Windows Desktop GUI Application
-          - Standalone executable (no Python required)
+          - Windows Desktop GUI Application (C# .NET 8)
+          - Standalone executable (no .NET runtime needed)
           - Auto-install FFmpeg if possible
           - All dependencies included
           
           ### 📋 Requirements
           - Windows 10/11
           - FFmpeg (will be auto-installed if possible)
-          - No Python installation needed!
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

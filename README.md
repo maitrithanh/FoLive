@@ -2,32 +2,39 @@
 
 Phần mềm livestream đa luồng lên YouTube với nhiều tính năng mạnh mẽ.
 
+**🆕 Đã chuyển đổi sang C# (.NET 8) với WPF GUI - Ổn định và hiệu năng tốt hơn!**
+
 ## ✨ Tính năng
 
 ### 📹 Nguồn livestream đa dạng
-- ✅ Hỗ trợ nhiều định dạng: **mp4, mov, mkv, avi, flv, webm**
+- ✅ Hỗ trợ nhiều định dạng: **mp4, mov, mkv, avi, flv, webm, m4v, wmv**
 - ✅ Livestream từ **file video** có sẵn
 - ✅ Livestream từ **video YouTube**
 - ✅ Livestream từ **playlist YouTube**
+- ✅ Livestream từ **Facebook** video
 - ✅ Livestream **quay màn hình** máy tính
-- ✅ Hỗ trợ tất cả nguồn được liệt kê
+- ✅ **Hỗ trợ 1000+ nguồn** qua yt-dlp (YouTube, Facebook, TikTok, Instagram, Twitter, và nhiều hơn nữa)
+- ✅ Xem danh sách đầy đủ: [yt-dlp Supported Sites](https://github.com/yt-dlp/yt-dlp/blob/master/supportedsites.md)
 
 ### 🎬 Xử lý video nâng cao
-- ✅ **Tăng tốc video** gốc
-- ✅ Thêm **intro, outro**
-- ✅ **Tăng âm lượng**, điều chỉnh độ sáng
-- ✅ **Chèn chữ** (text overlay)
-- ✅ Hỗ trợ **render FFmpeg** khi livestream
-- ✅ Livestream **không render** siêu nhẹ
+- ✅ **Tăng tốc video** gốc (0.5x - 3.0x)
+- ✅ Thêm **intro, outro** video
+- ✅ **Tăng âm lượng** (0% - 200%)
+- ✅ Điều chỉnh **độ sáng** (-100 đến +100)
+- ✅ **Chèn chữ** (text overlay) lên video
+- ✅ Hỗ trợ **render FFmpeg** khi livestream (bật effects)
+- ✅ Livestream **không render** siêu nhẹ (direct copy)
+- ✅ **Lặp lại vô hạn** video (24/7 mode)
 
 ### 🔄 Livestream 24/7
-- ✅ **Lặp lại vô hạn** livestream 24/24
+- ✅ **Lặp lại vô hạn** livestream 24/24 (loop mode)
 - ✅ **Không giới hạn** số luồng
-- ✅ **Livestream song song** nhiều luồng
-- ✅ Hiển thị **tình trạng luồng** real-time
+- ✅ **Livestream song song** nhiều luồng (multi-threading)
+- ✅ Hiển thị **tình trạng luồng** real-time (auto-refresh mỗi 3s)
+- ✅ Quản lý **unlimited streams** cùng lúc
 
 ### 🖥️ Giao diện Desktop
-- ✅ Giao diện Windows Desktop **trực quan, dễ sử dụng**
+- ✅ Giao diện Windows Desktop **trực quan, dễ sử dụng** (WPF)
 - ✅ Quản lý nhiều stream cùng lúc
 - ✅ Theo dõi trạng thái real-time
 - ✅ Cấu hình nâng cao cho từng stream
@@ -35,108 +42,87 @@ Phần mềm livestream đa luồng lên YouTube với nhiều tính năng mạn
 
 ## 🚀 Cài đặt
 
-### ⚡ Cài đặt tự động (Khuyến nghị - Không cần Python!)
+### ⚡ Download từ GitHub Releases (Khuyến nghị)
 
 **Download từ GitHub Releases:**
-1. Vào [Releases](https://github.com/YOUR_USERNAME/FoLive/releases)
-2. Download `FoLive-Windows-*.zip`
-3. Giải nén và chạy `install.bat`
 
-**Windows:**
-```cmd
-# Giải nén file zip
-# Chạy installer
-install.bat
+1. Vào [Releases](https://github.com/maitrithanh/FoLive/releases)
+2. Download `FoLive-Setup.exe` (Windows Installer)
+3. Chạy installer và làm theo wizard
 
-# Hoặc chạy trực tiếp
-FoLive.exe
-```
-
-✅ **Không cần cài Python!** Tất cả dependencies đã được bundle sẵn.
+✅ **Không cần cài .NET runtime!** (Self-contained)  
 ✅ **Windows Desktop Application** - Chạy như ứng dụng thông thường
 
 ### 📦 Build từ source (Development)
 
-Nếu muốn build từ source:
+**Yêu cầu:**
+- **.NET 8 SDK** - [Download](https://dotnet.microsoft.com/download/dotnet/8.0)
+- **Visual Studio 2022** (khuyến nghị) hoặc **VS Code**
+- **FFmpeg** - `winget install ffmpeg`
+
+**Build:**
 
 ```bash
-# Cài đặt dependencies
-pip install -r requirements.txt
-pip install pyinstaller
+# Restore packages
+dotnet restore
 
-# Build installer
-python build_installer.py
+# Build
+dotnet build
+
+# Run
+dotnet run --project FoLive.GUI/FoLive.GUI.csproj
+
+# Publish (tạo .exe)
+dotnet publish FoLive.GUI/FoLive.GUI.csproj \
+  -c Release \
+  -r win-x64 \
+  --self-contained true \
+  -p:PublishSingleFile=true
 ```
 
-### Yêu cầu hệ thống (chỉ khi build từ source)
-
-1. **Windows 10/11**
-2. **Python 3.8+**
-3. **FFmpeg** - Cài đặt:
-   ```cmd
-   # Windows
-   winget install ffmpeg
-   # hoặc
-   choco install ffmpeg
-   # hoặc tải từ https://ffmpeg.org/download.html
-   ```
-
-### Cài đặt dependencies
-
-```bash
-# Clone hoặc tải project
-cd FoLive
-
-# Tạo virtual environment (khuyến nghị)
-python3 -m venv venv
-source venv/bin/activate  # Trên Windows: venv\Scripts\activate
-
-# Cài đặt packages
-pip install -r requirements.txt
-```
-
-### Cấu hình
-
-1. Copy file `.env.example` thành `.env`:
-   ```bash
-   cp .env.example .env
-   ```
-
-2. Chỉnh sửa file `.env` với thông tin của bạn:
-   ```env
-   YOUTUBE_STREAM_KEY=your_youtube_stream_key_here
-   YOUTUBE_STREAM_URL=rtmp://a.rtmp.youtube.com/live2
-   ```
+**Output:** `FoLive.GUI/bin/Release/net8.0-windows/win-x64/publish/FoLive.exe`
 
 ## 📖 Sử dụng
 
 ### Khởi chạy ứng dụng
 
-```bash
-python app.py
-```
+**Windows:**
+- Double-click `FoLive.exe` (nếu đã build)
+- Hoặc từ Start Menu (nếu đã cài đặt)
 
-Ứng dụng sẽ chạy tại: `http://localhost:5000`
+**Development:**
+```bash
+dotnet run --project FoLive.GUI/FoLive.GUI.csproj
+```
 
 ### Tạo stream mới
 
-1. Mở trình duyệt và truy cập `http://localhost:5000`
-2. Điền thông tin:
+1. Mở ứng dụng FoLive
+2. Click nút **"➕ Add New Stream"**
+3. Điền thông tin cơ bản:
    - **Stream ID**: Tên định danh cho stream
-   - **Loại nguồn**: Chọn file, YouTube, playlist, hoặc screen
-   - **Nguồn**: Đường dẫn file hoặc URL
+   - **Source Type**: Chọn File, YouTube, Playlist, Facebook, URL, hoặc Screen
+   - **Source**: Đường dẫn file hoặc URL
    - **Stream URL**: RTMP URL (ví dụ: `rtmp://a.rtmp.youtube.com/live2`)
    - **Stream Key**: Key từ YouTube Studio
-3. Cấu hình nâng cao (tùy chọn):
-   - Bitrate, tốc độ phát, âm lượng, độ sáng
-   - Chèn chữ, lặp lại vô hạn
-4. Click **"Tạo Stream"**
+4. (Tùy chọn) Mở **Advanced Settings** để cấu hình:
+   - Loop video (24/7)
+   - Speed, Volume, Brightness
+   - Text overlay
+   - Intro/Outro videos
+   - Bitrate
+5. Click **"Add"**
 
 ### Quản lý streams
 
-- **Bắt đầu**: Click nút "Bắt đầu" trên stream
-- **Dừng**: Click nút "Dừng" trên stream đang chạy
-- **Xóa**: Click nút "Xóa" để xóa stream
+- **Start**: Click nút "Start" trên stream
+- **Stop**: Click nút "Stop" trên stream đang chạy
+- **Delete**: Click nút "Delete" để xóa stream
+
+### Real-time Status
+
+- Stream status tự động cập nhật mỗi 3 giây
+- Hiển thị trạng thái: Idle, Starting, Running, Stopping, Stopped, Error
 
 ## 🎛️ Cấu hình nâng cao
 
@@ -154,40 +140,47 @@ python app.py
 - **Preset**: FFmpeg preset (veryfast, fast, medium, slow)
 - **Resolution**: Độ phân giải output
 
-## 📝 API Endpoints
+## 🏗️ Cấu trúc Project
 
-### Streams
-- `GET /api/streams` - Lấy danh sách streams
-- `POST /api/streams` - Tạo stream mới
-- `GET /api/streams/<id>` - Lấy thông tin stream
-- `POST /api/streams/<id>/start` - Bắt đầu stream
-- `POST /api/streams/<id>/stop` - Dừng stream
-- `DELETE /api/streams/<id>` - Xóa stream
-- `PUT /api/streams/<id>/config` - Cập nhật config
-
-### Utilities
-- `POST /api/sources/validate` - Validate source
-- `POST /api/video/info` - Lấy thông tin video
-- `GET /api/system/check` - Kiểm tra hệ thống
+```
+FoLive/
+├── FoLive.sln                    # Solution file
+├── FoLive.Core/                  # Core business logic
+│   ├── Models/
+│   │   ├── Stream.cs
+│   │   └── StreamStatus.cs
+│   └── Services/
+│       ├── StreamManager.cs
+│       ├── FFmpegService.cs
+│       └── SourceHandlerService.cs
+├── FoLive.GUI/                   # WPF Application
+│   ├── Views/
+│   │   ├── MainWindow.xaml
+│   │   └── AddStreamDialog.xaml
+│   └── App.xaml
+└── FoLive.iss                    # Inno Setup installer
+```
 
 ## 🔧 Troubleshooting
 
 ### FFmpeg không tìm thấy
 - Đảm bảo FFmpeg đã được cài đặt và có trong PATH
-- Hoặc chỉ định đường dẫn trong file `.env`:
-  ```
-  FFMPEG_PATH=/usr/local/bin/ffmpeg
-  ```
+- Cài đặt: `winget install ffmpeg` hoặc `choco install ffmpeg`
 
 ### Stream không kết nối được
 - Kiểm tra Stream Key và Stream URL
 - Đảm bảo firewall không chặn kết nối RTMP
-- Kiểm tra log trong terminal để xem lỗi chi tiết
+- Kiểm tra log trong ứng dụng
 
 ### YouTube không nhận stream
 - Đảm bảo stream key còn hiệu lực
 - Kiểm tra bitrate không quá cao (khuyến nghị: 2500-4000k)
 - Đảm bảo video có audio track
+
+### Build errors
+- Kiểm tra .NET 8 SDK đã được cài: `dotnet --version`
+- Restore packages: `dotnet restore`
+- Clear cache: `dotnet nuget locals all --clear`
 
 ## 📄 License
 
@@ -197,66 +190,32 @@ MIT License
 
 Mọi đóng góp đều được chào đón! Vui lòng tạo issue hoặc pull request.
 
-## 🔄 CI/CD và Testing
+## 🔄 CI/CD
 
-Dự án sử dụng GitHub Actions để tự động build và test:
+Dự án sử dụng GitHub Actions để tự động build và release:
 
-- **CI Pipeline**: Tự động chạy tests trên mỗi push/PR
-- **Multi-platform**: Test trên Ubuntu, macOS, Windows
-- **Multi-version**: Test với Python 3.8, 3.9, 3.10, 3.11
-- **Docker Build**: Tự động build Docker image
-- **Release**: Tự động tạo release khi tag version
+- **Release Build**: Tự động build khi push tag `v*`
+- **Workflow**: Build C# application, tạo installer, upload lên Releases
 
-### Chạy tests locally
+### Tạo Release
 
-```bash
-# Cài đặt test dependencies
-pip install pytest pytest-cov flake8 black
+1. **Push tag:**
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
 
-# Chạy tests
-pytest tests/ -v
-
-# Check code style
-flake8 .
-black --check .
-```
-
-### GitHub Actions Workflows
-
-- `.github/workflows/ci.yml` - Full CI/CD pipeline
-- `.github/workflows/test.yml` - Quick test on push
-- `.github/workflows/release.yml` - Build release packages
+2. **Hoặc chạy workflow thủ công:**
+   - Vào **Actions** > **Release Build** > **Run workflow**
+   - Nhập version: `1.0.0`
+   - Workflow sẽ tự động build và tạo release
 
 ## 📧 Liên hệ
 
 Nếu có vấn đề hoặc câu hỏi, vui lòng tạo issue trên GitHub.
 
-## 🏗️ Build Status
-
-![CI](https://github.com/YOUR_USERNAME/FoLive/workflows/CI%2FCD%20Pipeline/badge.svg)
-![Tests](https://github.com/YOUR_USERNAME/FoLive/workflows/Quick%20Test/badge.svg)
-
-## 📦 Download Release
-
-**⚠️ QUAN TRỌNG: Release KHÔNG tự động tạo!**
-
-**Bạn phải chạy workflow trước:**
-1. Vào tab **Actions** trên GitHub
-2. Chọn workflow **"Release Build"**
-3. Click **"Run workflow"**
-4. Nhập version: `1.0.0`
-5. Chờ 5-10 phút
-6. Vào tab **Releases** để download file **FoLive.exe**
-
-**Tải file .exe mới nhất:**
-- Vào [Releases](https://github.com/YOUR_USERNAME/FoLive/releases)
-- Download file **FoLive.exe**
-
-**Xem hướng dẫn chi tiết:**
-- [README_RELEASE.md](README_RELEASE.md) - Hướng dẫn đầy đủ (BẮT BUỘC ĐỌC!)
-- [HOW_TO_RELEASE.md](HOW_TO_RELEASE.md) - Hướng dẫn ngắn gọn
-
 ---
 
 **FoLive** - Công cụ livestream 24/7 mạnh mẽ và dễ sử dụng! 🚀
 
+**Tech Stack:** C# (.NET 8), WPF, FFmpeg
