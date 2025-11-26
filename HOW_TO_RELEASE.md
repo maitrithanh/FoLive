@@ -1,28 +1,28 @@
 # 🚀 Hướng dẫn tạo Release
 
-## Cách 1: Tạo Release qua GitHub Actions (Khuyến nghị)
+## ⚡ Cách nhanh nhất: Tạo Release qua GitHub Actions
 
 ### Bước 1: Vào GitHub Actions
 1. Vào repository trên GitHub
-2. Click tab **Actions**
+2. Click tab **Actions** (ở trên cùng)
 3. Chọn workflow **"Release Build"** ở sidebar bên trái
 
 ### Bước 2: Chạy workflow
-1. Click nút **"Run workflow"** (góc trên bên phải)
+1. Click nút **"Run workflow"** (dropdown ở góc trên bên phải)
 2. Chọn branch: `main` hoặc `master`
-3. Nhập version: `1.0.0` (hoặc version bạn muốn)
-4. Đảm bảo **"Create GitHub Release"** được bật (mặc định là true)
-5. Click **"Run workflow"**
+3. Nhập version: `1.0.0` (không cần chữ "v", chỉ số thôi)
+4. Click nút màu xanh **"Run workflow"**
 
 ### Bước 3: Chờ workflow hoàn thành
 - Workflow sẽ tự động:
-  - Build file `.exe`
-  - Tạo GitHub Release
-  - Upload file `.exe` lên release
+  - ✅ Build file `.exe` (mất 5-10 phút)
+  - ✅ Tạo GitHub Release
+  - ✅ Upload file `FoLive.exe` lên release
 
 ### Bước 4: Kiểm tra Release
-1. Vào tab **Releases** trên GitHub
-2. Bạn sẽ thấy release mới với file `FoLive.exe`
+1. Vào tab **Releases** trên GitHub (bên cạnh tab Actions)
+2. Bạn sẽ thấy release mới với file **FoLive.exe** trong phần Assets
+3. Click vào **FoLive.exe** để download!
 
 ## Cách 2: Tạo Release bằng Git Tag
 
@@ -59,19 +59,35 @@ Nếu workflow không chạy, bạn có thể tạo release thủ công:
 ## Troubleshooting
 
 ### Workflow không chạy
-- Kiểm tra file `.github/workflows/release.yml` có tồn tại
-- Kiểm tra branch có workflow file
-- Xem logs trong tab Actions
+- ✅ Kiểm tra file `.github/workflows/release.yml` có tồn tại
+- ✅ Kiểm tra branch có workflow file
+- ✅ Xem logs trong tab Actions
 
 ### Release không có file .exe
-- Kiểm tra step "Build executable" có thành công
-- Kiểm tra step "Verify files before release"
-- Xem logs để biết file có được tạo không
+1. **Kiểm tra workflow đã chạy chưa:**
+   - Vào **Actions** > Xem workflow run có thành công không
+   - Step "Build executable" phải có dấu ✅
+   - Step "Create GitHub Release" phải có dấu ✅
+
+2. **Kiểm tra logs:**
+   - Click vào workflow run
+   - Xem step "Build executable" - phải thấy "[OK] Build successful!"
+   - Xem step "Verify executable exists" - phải thấy "[OK] FoLive.exe ready"
+   - Xem step "Create GitHub Release" - phải không có lỗi
+
+3. **Nếu vẫn không thấy file:**
+   - Kiểm tra release có được tạo không (vào tab Releases)
+   - Nếu có release nhưng không có file → có thể file quá lớn hoặc upload failed
+   - Thử tạo release lại với workflow
 
 ### Build failed
-- Kiểm tra Python dependencies
-- Kiểm tra FFmpeg đã được cài
-- Xem error logs trong Actions
+- Kiểm tra Python dependencies đã cài đầy đủ
+- Kiểm tra FFmpeg đã được cài (có thể skip)
+- Xem error logs trong Actions để biết lỗi cụ thể
+
+### File .exe quá lớn
+- GitHub có giới hạn 2GB cho mỗi file
+- Nếu file > 2GB, cần optimize build hoặc split file
 
 ## Quick Start
 

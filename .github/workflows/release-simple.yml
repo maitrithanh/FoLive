@@ -1,0 +1,78 @@
+name: Simple Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g., 1.0.0)'
+        required: true
+        type: string
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install pyinstaller
+    
+    - name: Create spec file
+      shell: powershell
+      run: |
+        if (-not (Test-Path "FoLive.spec")) {
+          Copy-Item "FoLive.spec" "FoLive.spec" -ErrorAction SilentlyContinue
+          if (-not (Test-Path "FoLive.spec")) {
+            # Create spec file
+            $content = Get-Content "FoLive.spec" -ErrorAction SilentlyContinue
+            if (-not $content) {
+              # Create from template
+              @"
+# -*- mode: python ; coding: utf-8 -*-
+block_cipher = None
+a = Analysis(['run.py'], pathex=[], binaries=[], datas=[('env.example', '.')], hiddenimports=['tkinter', 'tkinter.ttk', 'yt_dlp', 'pydub', 'dotenv', 'requests', 'psutil'], hookspath=[], hooksconfig={}, runtime_hooks=[], excludes=[], win_no_prefer_redirects=False, win_private_assemblies=False, cipher=block_cipher, noarchive=False)
+pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
+exe = EXE(pyz, a.scripts, a.binaries, a.zipfiles, a.datas, [], name='FoLive', debug=False, bootloader_ignore_signals=False, strip=False, upx=True, upx_exclude=[], runtime_tmpdir=None, console=False, icon=None, disable_windowed_traceback=False, argv_emulation=False, target_arch=None, codesign_identity=None, entitlements_file=None)
+"@ | Out-File "FoLive.spec" -Encoding utf8
+            }
+          }
+        }
+    
+    - name: Build
+      shell: powershell
+      run: |
+        python -m PyInstaller --clean --noconfirm FoLive.spec
+        if (-not (Test-Path "dist\FoLive.exe")) {
+          Write-Host "ERROR: Build failed!"
+          exit 1
+        }
+        $size = (Get-Item "dist\FoLive.exe").Length / 1MB
+        Write-Host "Build successful! Size: $([math]::Round($size, 2)) MB"
+    
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        files: dist/FoLive.exe
+        tag_name: v${{ github.event.inputs.version }}
+        name: Release v${{ github.event.inputs.version }}
+        body: |
+          # FoLive v${{ github.event.inputs.version }}
+          
+          Download **FoLive.exe** và chạy ngay!
+          
+          - Windows Desktop Application
+          - Standalone executable (no Python needed)
+          - All dependencies included
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

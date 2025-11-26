@@ -7,11 +7,6 @@ on:
         description: 'Version number (e.g., 1.0.0)'
         required: true
         type: string
-      create_release:
-        description: 'Create GitHub Release'
-        required: false
-        type: boolean
-        default: true
   push:
     tags:
       - 'v*'
@@ -134,100 +129,28 @@ jobs:
           Write-Host "[OK] Build successful! File size: $([math]::Round($fileSize, 2)) MB"
         } else {
           Write-Host "[ERROR] FoLive.exe not found!"
-          exit 1
-        }
-    
-    - name: Prepare release files
-      shell: powershell
-      run: |
-        # Clean and create release directory
-        if (Test-Path "release") {
-          Remove-Item "release" -Recurse -Force
-        }
-        New-Item -ItemType Directory -Force -Path release | Out-Null
-        
-        # Verify executable exists
-        if (-not (Test-Path "dist\FoLive.exe")) {
-          Write-Host "[ERROR] FoLive.exe not found in dist folder!"
-          Write-Host "Checking dist folder contents:"
+          Write-Host "Contents of dist folder:"
           Get-ChildItem "dist" | ForEach-Object { Write-Host "  $($_.Name)" }
           exit 1
         }
-        
-        # Copy executable to release folder
-        Copy-Item "dist\FoLive.exe" "release\FoLive.exe" -Force
-        $fileSize = (Get-Item "release\FoLive.exe").Length / 1MB
-        Write-Host "[OK] Copied FoLive.exe ($([math]::Round($fileSize, 2)) MB)"
-        
-        # Copy installer
-        if (Test-Path "installer\install.bat") {
-          Copy-Item "installer\install.bat" "release\install.bat" -Force
-          Write-Host "[OK] Copied install.bat"
-        } else {
-          Write-Host "[WARNING] install.bat not found"
-        }
-        
-        # Copy docs
-        if (Test-Path "README.md") {
-          Copy-Item "README.md" "release\README.md" -Force
-          Write-Host "[OK] Copied README.md"
-        }
-        if (Test-Path "INSTALL.md") {
-          Copy-Item "INSTALL.md" "release\INSTALL.md" -Force
-          Write-Host "[OK] Copied INSTALL.md"
-        }
-        if (Test-Path "env.example") {
-          Copy-Item "env.example" "release\env.example" -Force
-          Write-Host "[OK] Copied env.example"
-        }
-        
-        Write-Host ""
-        Write-Host "=== Release files summary ==="
-        Get-ChildItem -Path release | ForEach-Object {
-          $size = if ($_.PSIsContainer) { "DIR" } else { "$([math]::Round($_.Length / 1MB, 2)) MB" }
-          Write-Host "  $($_.Name) - $size"
-        }
-        Write-Host "[OK] Release files prepared"
     
-    - name: Upload release artifacts (backup)
-      uses: actions/upload-artifact@v4
-      with:
-        name: release-files-backup
-        path: release/*
-        retention-days: 30
-    
-    - name: Verify files before release
+    - name: Verify executable exists
       shell: powershell
       run: |
-        Write-Host "=== Verifying files for release ==="
-        $requiredFiles = @("release\FoLive.exe")
-        foreach ($file in $requiredFiles) {
-          if (Test-Path $file) {
-            $size = (Get-Item $file).Length / 1MB
-            Write-Host "[OK] $file exists ($([math]::Round($size, 2)) MB)"
-          } else {
-            Write-Host "[ERROR] $file NOT FOUND!"
-            exit 1
-          }
+        if (-not (Test-Path "dist\FoLive.exe")) {
+          Write-Host "[ERROR] FoLive.exe not found!"
+          exit 1
         }
-        Write-Host ""
-        Write-Host "All files in release folder:"
-        Get-ChildItem -Path release | ForEach-Object {
-          Write-Host "  - $($_.Name)"
-        }
+        $file = Get-Item "dist\FoLive.exe"
+        $size = $file.Length / 1MB
+        Write-Host "[OK] FoLive.exe ready for release"
+        Write-Host "     Path: $($file.FullName)"
+        Write-Host "     Size: $([math]::Round($size, 2)) MB"
     
     - name: Create GitHub Release
-      if: github.event.inputs.create_release != 'false'
       uses: softprops/action-gh-release@v2
       with:
-        files: |
-          release/FoLive.exe
-          release/install.bat
-          release/README.md
-          release/INSTALL.md
-          release/env.example
-        fail_on_unmatched_files: false
-        generate_release_notes: false
+        files: dist/FoLive.exe
         tag_name: ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
         name: Release ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
         body: |
@@ -237,29 +160,21 @@ jobs:
           
           **Tải ngay file .exe:**
           - **[FoLive.exe](FoLive.exe)** - Standalone executable (no Python required)
-          - `install.bat` - Auto installer (optional)
           
           ### 🚀 Quick Start
           
-          **Cách 1: Chạy trực tiếp (Khuyến nghị)**
           1. Download file **FoLive.exe**
           2. Double-click để chạy ngay!
-          
-          **Cách 2: Cài đặt tự động**
-          1. Download cả `FoLive.exe` và `install.bat`
-          2. Chạy `install.bat` để cài đặt vào hệ thống
           
           ### ✨ Features
           - ✅ Windows Desktop GUI Application
           - ✅ Standalone executable (no Python required)
           - ✅ Auto-install FFmpeg if possible
-          - ✅ Auto-configure PATH
           - ✅ All dependencies included
-          - ✅ No web server needed
           
           ### 📋 Requirements
           - Windows 10/11
-          - FFmpeg (will be auto-installed if possible via winget/choco)
+          - FFmpeg (will be auto-installed if possible)
           - No Python installation needed!
         draft: false
         prerelease: false
