@@ -264,9 +264,8 @@ public partial class MainWindow : Window
                     var updatedStream = dialog.GetStream();
                     if (updatedStream != null)
                     {
-                        // Remove old and add new
-                        await _streamManager.RemoveStreamAsync(streamId);
-                        await _streamManager.AddStreamAsync(updatedStream);
+                        // Update stream (will save config automatically)
+                        await _streamManager.UpdateStreamAsync(updatedStream);
                         await RefreshStreams();
                     }
                 }
@@ -287,6 +286,21 @@ public partial class MainWindow : Window
     protected override void OnClosed(EventArgs e)
     {
         _refreshTimer?.Stop();
+        
+        // Save config before closing
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _streamManager.SaveConfigNowAsync();
+                Console.WriteLine("[MainWindow] Config saved on exit");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[MainWindow] Error saving config on exit: {ex.Message}");
+            }
+        });
+        
         base.OnClosed(e);
     }
 }

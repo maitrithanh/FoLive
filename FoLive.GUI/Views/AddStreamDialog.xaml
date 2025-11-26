@@ -108,6 +108,22 @@
                     </StackPanel>
 
                     <StackPanel Margin="0,0,0,10">
+                        <TextBlock Text="Resolution:" Margin="0,0,0,5"/>
+                        <ComboBox x:Name="ResolutionComboBox" SelectedIndex="1">
+                            <ComboBoxItem Content="1920x1080 (Full HD)"/>
+                            <ComboBoxItem Content="1280x720 (HD)"/>
+                            <ComboBoxItem Content="854x480 (SD)"/>
+                            <ComboBoxItem Content="640x360 (360p)"/>
+                            <ComboBoxItem Content="Custom"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel x:Name="CustomResolutionPanel" Margin="0,0,0,10" Visibility="Collapsed">
+                        <TextBlock Text="Custom Resolution (e.g., 1920x1080):" Margin="0,0,0,5"/>
+                        <TextBox x:Name="CustomResolutionTextBox" Text="1920x1080"/>
+                    </StackPanel>
+
+                    <StackPanel Margin="0,0,0,10">
                         <TextBlock Text="Bitrate (e.g., 2500k):" Margin="0,0,0,5"/>
                         <TextBox x:Name="BitrateTextBox" Text="2500k"/>
                     </StackPanel>

@@ -18,6 +18,15 @@ public partial class AddStreamDialog : Window
         SpeedSlider.ValueChanged += (s, e) => SpeedValueText.Text = $"{SpeedSlider.Value:F1}x";
         VolumeSlider.ValueChanged += (s, e) => VolumeValueText.Text = $"{(VolumeSlider.Value * 100):F0}%";
         BrightnessSlider.ValueChanged += (s, e) => BrightnessValueText.Text = $"{(int)BrightnessSlider.Value}";
+        
+        // Setup resolution combo box changed handler
+        ResolutionComboBox.SelectionChanged += (s, e) =>
+        {
+            if (ResolutionComboBox.SelectedItem is ComboBoxItem item && item.Content is string content)
+            {
+                CustomResolutionPanel.Visibility = content == "Custom" ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+            }
+        };
     }
 
     private void BrowseFile_Click(object sender, RoutedEventArgs e)
@@ -98,6 +107,25 @@ public partial class AddStreamDialog : Window
             };
         }
         
+        // Get resolution
+        string resolution = "1280x720"; // Default
+        if (ResolutionComboBox.SelectedItem is ComboBoxItem item && item.Content is string content)
+        {
+            if (content == "Custom")
+            {
+                resolution = CustomResolutionTextBox.Text.Trim();
+            }
+            else
+            {
+                // Extract resolution from text like "1920x1080 (Full HD)"
+                var match = System.Text.RegularExpressions.Regex.Match(content, @"(\d+x\d+)");
+                if (match.Success)
+                {
+                    resolution = match.Groups[1].Value;
+                }
+            }
+        }
+
         var config = new Dictionary<string, object>
         {
             { "loop", LoopCheckBox.IsChecked == true },
@@ -105,7 +133,8 @@ public partial class AddStreamDialog : Window
             { "speed", SpeedSlider.Value },
             { "volume", VolumeSlider.Value },
             { "brightness", (int)BrightnessSlider.Value },
-            { "bitrate", BitrateTextBox.Text }
+            { "bitrate", BitrateTextBox.Text },
+            { "resolution", resolution }
         };
 
         if (!string.IsNullOrWhiteSpace(TextOverlayTextBox.Text))

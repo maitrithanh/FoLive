@@ -79,6 +79,43 @@ public class StreamManager
         }
     }
 
+    public async Task<bool> UpdateStreamAsync(StreamModel updatedStream)
+    {
+        await _lock.WaitAsync();
+        try
+        {
+            if (!_streams.TryGetValue(updatedStream.StreamId, out var existingStream))
+            {
+                return false;
+            }
+
+            // If stream is running, stop it first
+            if (existingStream.Status == StreamStatus.Running)
+            {
+                await StopStreamAsync(updatedStream.StreamId);
+            }
+
+            // Update stream data (keep runtime data if needed)
+            existingStream.Source = updatedStream.Source;
+            existingStream.SourceType = updatedStream.SourceType;
+            existingStream.StreamKey = updatedStream.StreamKey;
+            existingStream.StreamUrl = updatedStream.StreamUrl;
+            existingStream.Config = updatedStream.Config;
+            
+            // Reset status to Idle
+            existingStream.Status = StreamStatus.Idle;
+            existingStream.ErrorMessage = null;
+
+            OnStreamStatusChanged(existingStream);
+            await SaveConfigAsync();
+            return true;
+        }
+        finally
+        {
+            _lock.Release();
+        }
+    }
+
     public async Task<bool> RemoveStreamAsync(string streamId)
     {
         await _lock.WaitAsync();
@@ -102,6 +139,11 @@ public class StreamManager
         {
             _lock.Release();
         }
+    }
+    
+    public async Task SaveConfigNowAsync()
+    {
+        await SaveConfigAsync();
     }
 
     public async Task<bool> StartStreamAsync(string streamId)
@@ -142,6 +184,10 @@ public class StreamManager
                     OnStreamStatusChanged(stream);
                     return false;
                 }
+
+                // Log command for debugging
+                Console.WriteLine($"[StreamManager] Starting stream '{streamId}'");
+                Console.WriteLine($"[StreamManager] Command: {command}");
 
                 // Start FFmpeg process
                 stream.Process = _ffmpegService.StartStream(command);
@@ -255,19 +301,37 @@ public class StreamManager
 
         try
         {
+            // Monitor process status
+            while (!stream.Process.HasExited && stream.Status == StreamStatus.Running)
+            {
+                await Task.Delay(1000);
+                
+                // Update stats if possible
+                if (stream.StartTime.HasValue)
+                {
+                    // Stats will be updated by UI refresh
+                }
+            }
+
             await stream.Process.WaitForExitAsync();
 
             if (stream.Process.ExitCode != 0 && stream.Status == StreamStatus.Running)
             {
                 stream.Status = StreamStatus.Error;
-                stream.ErrorMessage = $"Process exited with code {stream.Process.ExitCode}";
+                stream.ErrorMessage = $"FFmpeg process exited with code {stream.Process.ExitCode}. Check console for details.";
+                OnStreamStatusChanged(stream);
+            }
+            else if (stream.Status == StreamStatus.Running)
+            {
+                // Process exited normally but status is still Running
+                stream.Status = StreamStatus.Stopped;
                 OnStreamStatusChanged(stream);
             }
         }
         catch (Exception ex)
         {
             stream.Status = StreamStatus.Error;
-            stream.ErrorMessage = ex.Message;
+            stream.ErrorMessage = $"Monitor error: {ex.Message}";
             OnStreamStatusChanged(stream);
         }
     }
