@@ -72,20 +72,39 @@ jobs:
         Write-Host "     Path: $($file.FullName)"
         Write-Host "     Size: $([math]::Round($size, 2)) MB"
     
+    - name: Download FFmpeg
+      shell: powershell
+      run: |
+        Write-Host "Downloading FFmpeg..."
+        $ErrorActionPreference = "Continue"
+        
+        # Create dist directory
+        New-Item -ItemType Directory -Force -Path "dist" | Out-Null
+        
+        # Download FFmpeg Essentials (smaller, sufficient for most use cases)
+        $ffmpegUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+        $ffmpegZip = "dist\ffmpeg.zip"
+        
+        Write-Host "Downloading from: $ffmpegUrl"
+        try {
+          Invoke-WebRequest -Uri $ffmpegUrl -OutFile $ffmpegZip -UseBasicParsing
+          if (Test-Path $ffmpegZip) {
+            $size = (Get-Item $ffmpegZip).Length / 1MB
+            Write-Host "[OK] FFmpeg downloaded ($([math]::Round($size, 2)) MB)"
+          } else {
+            Write-Host "[WARNING] FFmpeg download failed"
+          }
+        } catch {
+          Write-Host "[WARNING] FFmpeg download error: $_"
+          Write-Host "Continuing without bundled FFmpeg..."
+        }
+    
     - name: Copy files to dist
       shell: powershell
       run: |
         Write-Host "Copying files to dist directory..."
-        New-Item -ItemType Directory -Force -Path "dist" | Out-Null
         $exePath = "FoLive.GUI\bin\Release\net8.0-windows\win-x64\publish\FoLive.exe"
         Copy-Item $exePath -Destination "dist\FoLive.exe" -Force
-        
-        # Copy dependency installer script
-        if (Test-Path "install_dependencies.ps1") {
-          Copy-Item "install_dependencies.ps1" -Destination "dist\install_dependencies.ps1" -Force
-          Write-Host "[OK] Dependency installer script copied"
-        }
-        
         Write-Host "[OK] Files copied to dist/"
     
     - name: Install Inno Setup

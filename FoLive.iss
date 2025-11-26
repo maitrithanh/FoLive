@@ -43,7 +43,7 @@ Name: "startmenu"; Description: "Create Start Menu shortcut"; GroupDescription: 
 
 [Files]
 Source: "dist\{#AppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "install_dependencies.ps1"; DestDir: "{app}"; Flags: ignoreversion
+Source: "dist\ffmpeg.zip"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: FFmpegZipExists
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
 ; Note: Don't use "Flags: ignoreversion" on any shared system files
 
@@ -60,6 +60,11 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(
 var
   DependenciesPage: TOutputProgressWizardPage;
   FFmpegInstalled: Boolean;
+
+function FFmpegZipExists(): Boolean;
+begin
+  Result := FileExists(ExpandConstant('{tmp}\ffmpeg.zip'));
+end;
 
 function InitializeSetup(): Boolean;
 var
@@ -95,124 +100,132 @@ begin
   end;
 end;
 
-procedure InitializeWizard;
+procedure CurStepChanged(CurStep: TSetupStep);
 var
+  FFmpegZipPath: String;
+  FFmpegExtractPath: String;
+  FFmpegBinPath: String;
   ResultCode: Integer;
-  InstallSuccess: Boolean;
+  UnzipTool: String;
 begin
-  // Skip if already installed
-  if FFmpegInstalled then
-    Exit;
-  
-  // Automatically install FFmpeg
-  DependenciesPage := CreateOutputProgressPage('Installing FFmpeg', 'FoLive is installing FFmpeg automatically...');
-  DependenciesPage.Show;
-  
-  InstallSuccess := False;
-  
-  try
-    DependenciesPage.SetText('Installing FFmpeg via winget (full build)...', 'This may take a few minutes.');
-    DependenciesPage.SetProgress(10, 100);
-    
-    // Try winget full build first (Windows 10/11)
-    // According to https://www.gyan.dev/ffmpeg/builds/
-    // release full: winget install ffmpeg
-    if Exec('winget', 'install ffmpeg --accept-source-agreements --accept-package-agreements --silent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-    begin
-      if ResultCode = 0 then
-      begin
-        DependenciesPage.SetText('FFmpeg installation completed. Verifying...', '');
-        DependenciesPage.SetProgress(80, 100);
-        Sleep(3000); // Wait for PATH to update
-        
-        // Verify installation
-        if Exec('ffmpeg', '-version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-        begin
-          if ResultCode = 0 then
-          begin
-            InstallSuccess := True;
-            FFmpegInstalled := True;
-          end;
-        end;
-      end;
-    end;
-    
-    // Try winget essentials build if full build failed
-    if not InstallSuccess then
-    begin
-      DependenciesPage.SetText('Trying FFmpeg Essentials build...', '');
-      DependenciesPage.SetProgress(30, 100);
-      
-      if Exec('winget', 'install "FFmpeg (Essentials Build)" --accept-source-agreements --accept-package-agreements --silent', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-      begin
-        if ResultCode = 0 then
-        begin
-          DependenciesPage.SetText('FFmpeg installation completed. Verifying...', '');
-          DependenciesPage.SetProgress(80, 100);
-          Sleep(3000);
-          
-          if Exec('ffmpeg', '-version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-          begin
-            if ResultCode = 0 then
-            begin
-              InstallSuccess := True;
-              FFmpegInstalled := True;
-            end;
-          end;
-        end;
-      end;
-    end;
-    
-    // Try Chocolatey if winget failed
-    if not InstallSuccess then
-    begin
-      DependenciesPage.SetText('Trying Chocolatey...', '');
-      DependenciesPage.SetProgress(50, 100);
-      
-      if Exec('choco', 'install ffmpeg -y --no-progress', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-      begin
-        if ResultCode = 0 then
-        begin
-          DependenciesPage.SetText('FFmpeg installation completed. Verifying...', '');
-          DependenciesPage.SetProgress(80, 100);
-          Sleep(3000);
-          
-          if Exec('ffmpeg', '-version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
-          begin
-            if ResultCode = 0 then
-            begin
-              InstallSuccess := True;
-              FFmpegInstalled := True;
-            end;
-          end;
-        end;
-      end;
-    end;
-    
-    DependenciesPage.SetProgress(100, 100);
-    
-  finally
-    DependenciesPage.Hide;
-  end;
-  
-  // Show result only if failed
-  if not InstallSuccess then
+  // Extract FFmpeg after files are installed
+  if CurStep = ssPostInstall then
   begin
-    if MsgBox('FFmpeg could not be installed automatically.' + #13#10 + #13#10 +
-              'Possible reasons:' + #13#10 +
-              '- winget or Chocolatey is not available' + #13#10 +
-              '- Administrator privileges required' + #13#10 +
-              '- Network connection issue' + #13#10 + #13#10 +
-              'You can install FFmpeg manually:' + #13#10 +
-              '1. Visit: https://www.gyan.dev/ffmpeg/builds/' + #13#10 +
-              '2. Or run: winget install ffmpeg' + #13#10 + #13#10 +
-              'Would you like to:' + #13#10 +
-              '1. Continue installation (install FFmpeg manually later)' + #13#10 +
-              '2. Cancel and install FFmpeg first', 
-              mbConfirmation, MB_YESNO) = IDNO then
+    // Skip if already installed
+    if FFmpegInstalled then
+      Exit;
+    
+    // Check if FFmpeg zip exists
+    FFmpegZipPath := ExpandConstant('{tmp}\ffmpeg.zip');
+    if not FileExists(FFmpegZipPath) then
     begin
-      Abort;
+      // No bundled FFmpeg, try to add existing FFmpeg to PATH
+      AddFFmpegToPath();
+      Exit;
+    end;
+    
+    // Show progress
+    DependenciesPage := CreateOutputProgressPage('Installing FFmpeg', 'Extracting and configuring FFmpeg...');
+    DependenciesPage.Show;
+    
+    try
+      DependenciesPage.SetText('Extracting FFmpeg...', '');
+      DependenciesPage.SetProgress(20, 100);
+      
+      // Extract to app directory
+      FFmpegExtractPath := ExpandConstant('{app}\ffmpeg');
+      FFmpegBinPath := FFmpegExtractPath + '\bin';
+      
+      // Use PowerShell to extract (built-in, no need for 7zip)
+      DependenciesPage.SetText('Extracting FFmpeg archive...', 'This may take a moment.');
+      DependenciesPage.SetProgress(40, 100);
+      
+      if Exec('powershell.exe', '-Command "Expand-Archive -Path ''' + FFmpegZipPath + ''' -DestinationPath ''' + FFmpegExtractPath + ''' -Force"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+      begin
+        if ResultCode = 0 then
+        begin
+          DependenciesPage.SetText('Adding FFmpeg to PATH...', '');
+          DependenciesPage.SetProgress(80, 100);
+          
+          // Add to PATH
+          if AddFFmpegBinToPath(FFmpegBinPath) then
+          begin
+            DependenciesPage.SetText('FFmpeg installed successfully!', '');
+            DependenciesPage.SetProgress(100, 100);
+            Sleep(1000);
+            
+            // Verify
+            if Exec(FFmpegBinPath + '\ffmpeg.exe', '-version', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+            begin
+              if ResultCode = 0 then
+              begin
+                FFmpegInstalled := True;
+              end;
+            end;
+          end;
+        end;
+      end;
+      
+    finally
+      DependenciesPage.Hide;
     end;
   end;
+end;
+
+function AddFFmpegBinToPath(BinPath: String): Boolean;
+var
+  Paths: String;
+  NewPath: String;
+begin
+  Result := False;
+  // Get current PATH
+  RegQueryStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', Paths);
+  
+  // Check if already in PATH
+  if Pos(BinPath, Paths) > 0 then
+  begin
+    Result := True;
+    Exit;
+  end;
+  
+  // Add to PATH
+  NewPath := Paths;
+  if NewPath <> '' then
+    NewPath := NewPath + ';';
+  NewPath := NewPath + BinPath;
+  
+  // Write to registry
+  if RegWriteStringValue(HKEY_LOCAL_MACHINE, 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment', 'Path', NewPath) then
+  begin
+    Result := True;
+    // Broadcast environment change
+    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, LongInt(PChar('Environment')), SMTO_ABORTIFHUNG, 5000, nil);
+  end;
+end;
+
+procedure AddFFmpegToPath();
+var
+  FFmpegPath: String;
+  ResultCode: Integer;
+begin
+  // Check common installation paths and add to PATH if found
+  FFmpegPath := ExpandConstant('{pf}\ffmpeg\bin');
+  if DirExists(FFmpegPath) then
+  begin
+    AddFFmpegBinToPath(FFmpegPath);
+    Exit;
+  end;
+  
+  FFmpegPath := ExpandConstant('{pf32}\ffmpeg\bin');
+  if DirExists(FFmpegPath) then
+  begin
+    AddFFmpegBinToPath(FFmpegPath);
+    Exit;
+  end;
+end;
+
+procedure InitializeWizard;
+begin
+  // Just check, installation will happen in CurStepChanged
 end;
 
