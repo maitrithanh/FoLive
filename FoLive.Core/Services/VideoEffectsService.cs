@@ -19,7 +19,7 @@ public class VideoEffectsService
         _ffmpegService = ffmpegService;
     }
 
-    public async Task<string?> ProcessVideoWithIntroOutroAsync(
+    public Task<string?> ProcessVideoWithIntroOutroAsync(
         string mainVideo,
         string? introPath,
         string? outroPath,
@@ -32,7 +32,7 @@ public class VideoEffectsService
         // 3. Stream from that file
         
         // This is a placeholder - can be enhanced to actually process video
-        return mainVideo;
+        return Task.FromResult<string?>(mainVideo);
     }
 
     public string BuildConcatCommand(string introPath, string mainVideo, string outroPath, string outputPath)
