@@ -15,10 +15,14 @@ jobs:
   release:
     name: Build and Release
     runs-on: windows-latest
+    permissions:
+      contents: write
     
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
     
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -147,14 +151,30 @@ jobs:
         Write-Host "     Path: $($file.FullName)"
         Write-Host "     Size: $([math]::Round($size, 2)) MB"
     
+    - name: Create tag (if workflow_dispatch)
+      if: github.event_name == 'workflow_dispatch'
+      shell: powershell
+      run: |
+        $version = "${{ github.event.inputs.version }}"
+        if ($version -match "^v") {
+          $tagName = $version
+        } else {
+          $tagName = "v$version"
+        }
+        Write-Host "Creating tag: $tagName"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a "$tagName" -m "Release $tagName"
+        git push origin "$tagName"
+        Write-Host "[OK] Tag $tagName created and pushed"
+    
     - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
         files: dist/FoLive.exe
-        tag_name: ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
-        name: Release ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
         body: |
-          ## FoLive Release ${{ github.ref_name || format('v{0}', github.event.inputs.version) }}
+          ## FoLive Release ${{ github.ref_name }}
           
           ### Download
           
@@ -176,7 +196,5 @@ jobs:
           - Windows 10/11
           - FFmpeg (will be auto-installed if possible)
           - No Python installation needed!
-        draft: false
-        prerelease: false
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
