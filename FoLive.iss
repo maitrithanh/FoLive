@@ -214,8 +214,8 @@ begin
   begin
     Result := True;
     // Broadcast environment change
+    var Dummy: LongWord;
     try
-      var Dummy: LongWord;
       SendMessageTimeout($FFFF, WM_SETTINGCHANGE, 0, LongInt(PChar('Environment')), SMTO_ABORTIFHUNG, 5000, Dummy);
     except
       // Ignore errors
