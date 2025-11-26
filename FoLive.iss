@@ -11,7 +11,7 @@
 
 [Setup]
 ; App info
-AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}
+AppId={{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}}
 AppName={#AppName}
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
@@ -60,6 +60,15 @@ Filename: "{app}\{#AppExeName}"; Description: "{cm:LaunchProgram,{#StringChange(
 var
   DependenciesPage: TOutputProgressWizardPage;
   FFmpegInstalled: Boolean;
+
+// Windows API declarations
+const
+  HWND_BROADCAST = $FFFF;
+  WM_SETTINGCHANGE = $001A;
+  SMTO_ABORTIFHUNG = $0002;
+
+procedure SendMessageTimeout(hWnd: LongWord; Msg: LongWord; wParam: LongWord; lParam: LongInt; fuFlags: LongWord; uTimeout: LongWord; var lpdwResult: LongWord);
+external 'SendMessageTimeoutW@user32.dll stdcall';
 
 function FFmpegZipExists(): Boolean;
 begin
@@ -206,7 +215,12 @@ begin
   begin
     Result := True;
     // Broadcast environment change
-    SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, LongInt(PChar('Environment')), SMTO_ABORTIFHUNG, 5000, nil);
+    try
+      var Dummy: LongWord;
+      SendMessageTimeout(HWND_BROADCAST, WM_SETTINGCHANGE, 0, LongInt(PChar('Environment')), SMTO_ABORTIFHUNG, 5000, Dummy);
+    except
+      // Ignore errors
+    end;
   end;
 end;
 
