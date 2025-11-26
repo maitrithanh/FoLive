@@ -138,7 +138,7 @@ public class ConfigService
         }
 
         // Default fallback
-        return "https://api.example.com"; // TODO: Update with actual API URL
+        return "https://folive-web.vercel.app";
     }
 
     /// <summary>

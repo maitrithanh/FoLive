@@ -18,7 +18,7 @@ public class AuthService
 
     public AuthService(string? baseUrl = null)
     {
-        _baseUrl = baseUrl ?? "https://api.example.com"; // TODO: Configure this
+        _baseUrl = baseUrl ?? "https://folive-web.vercel.app";
         _httpClient = new HttpClient
         {
             BaseAddress = new Uri(_baseUrl),
