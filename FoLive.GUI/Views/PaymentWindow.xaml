@@ -21,7 +21,7 @@
                     <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel Grid.Column="0">
-                    <TextBlock Text="💳 Thanh toán & Gia hạn" 
+                    <TextBlock Text="💳 Thanh toán &amp; Gia hạn" 
                               FontSize="24" 
                               FontWeight="Bold" 
                               Foreground="White"/>
