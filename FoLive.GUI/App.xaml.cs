@@ -13,10 +13,11 @@ namespace FoLive
         {
             base.OnStartup(e);
             
-            // Initialize AuthService with API base URL
+            // Initialize AuthService with API base URL and API key
             var configService = new ConfigService();
             var apiBaseUrl = configService.GetApiBaseUrl();
-            _authService = new AuthService(apiBaseUrl);
+            var softwareApiKey = configService.GetSoftwareApiKey();
+            _authService = new AuthService(apiBaseUrl, softwareApiKey);
             
             // Show login window first
             var loginWindow = new LoginWindow(_authService);

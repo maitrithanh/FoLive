@@ -158,7 +158,8 @@ public class ConfigService
             }
 
             var apiConfigPath = Path.Combine(configDir, "api_config.json");
-            var apiConfig = new ApiConfig { BaseUrl = baseUrl };
+            var apiConfig = LoadApiConfig();
+            apiConfig.BaseUrl = baseUrl;
             var json = JsonSerializer.Serialize(apiConfig, _jsonOptions);
             await File.WriteAllTextAsync(apiConfigPath, json);
         }
@@ -167,11 +168,97 @@ public class ConfigService
             Console.WriteLine($"Error saving API config: {ex.Message}");
         }
     }
+
+    /// <summary>
+    /// Gets the Software API Key from config or environment variable
+    /// </summary>
+    public string GetSoftwareApiKey()
+    {
+        // First check environment variable
+        var envKey = Environment.GetEnvironmentVariable("FOLIVE_SOFTWARE_API_KEY");
+        if (!string.IsNullOrWhiteSpace(envKey))
+        {
+            return envKey;
+        }
+
+        // Then check config file
+        try
+        {
+            var apiConfig = LoadApiConfig();
+            if (!string.IsNullOrWhiteSpace(apiConfig.SoftwareApiKey))
+            {
+                return apiConfig.SoftwareApiKey;
+            }
+        }
+        catch
+        {
+            // Ignore errors, return empty
+        }
+
+        // Default Software API Key (fallback)
+        return "w5UnHtnKYAwa3k06PJIhF1u0nA9FBS8bZQ8iHSE";
+    }
+
+    /// <summary>
+    /// Saves the Software API Key to config file
+    /// </summary>
+    public async Task SaveSoftwareApiKeyAsync(string apiKey)
+    {
+        try
+        {
+            var configDir = Path.GetDirectoryName(_configPath);
+            if (string.IsNullOrEmpty(configDir))
+                return;
+
+            if (!Directory.Exists(configDir))
+            {
+                Directory.CreateDirectory(configDir);
+            }
+
+            var apiConfigPath = Path.Combine(configDir, "api_config.json");
+            var apiConfig = LoadApiConfig();
+            apiConfig.SoftwareApiKey = apiKey;
+            var json = JsonSerializer.Serialize(apiConfig, _jsonOptions);
+            await File.WriteAllTextAsync(apiConfigPath, json);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving API key: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Loads API configuration from file (synchronous version for use in synchronous methods)
+    /// </summary>
+    private ApiConfig LoadApiConfig()
+    {
+        try
+        {
+            var configDir = Path.GetDirectoryName(_configPath);
+            var apiConfigPath = Path.Combine(configDir ?? "", "api_config.json");
+            if (File.Exists(apiConfigPath))
+            {
+                var json = File.ReadAllText(apiConfigPath);
+                var apiConfig = JsonSerializer.Deserialize<ApiConfig>(json, _jsonOptions);
+                if (apiConfig != null)
+                {
+                    return apiConfig;
+                }
+            }
+        }
+        catch
+        {
+            // Ignore errors, return default
+        }
+
+        return new ApiConfig();
+    }
 }
 
 public class ApiConfig
 {
     public string BaseUrl { get; set; } = string.Empty;
+    public string SoftwareApiKey { get; set; } = string.Empty;
 }
 
 public class StreamConfig

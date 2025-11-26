@@ -1,5 +1,6 @@
 using System;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
@@ -13,12 +14,15 @@ public class AuthService
 {
     private readonly HttpClient _httpClient;
     private readonly string _baseUrl;
+    private readonly string _softwareApiKey;
     private readonly JsonSerializerOptions _jsonOptions;
     private User? _currentUser;
 
-    public AuthService(string? baseUrl = null)
+    public AuthService(string? baseUrl = null, string? softwareApiKey = null)
     {
         _baseUrl = baseUrl ?? "https://folive-web.vercel.app";
+        _softwareApiKey = softwareApiKey ?? string.Empty;
+        
         _httpClient = new HttpClient
         {
             BaseAddress = new Uri(_baseUrl),
@@ -26,6 +30,26 @@ public class AuthService
         };
         
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "FoLive/1.0");
+        
+        // Add API key to Authorization header if provided
+        if (!string.IsNullOrWhiteSpace(_softwareApiKey))
+        {
+            // Support both "Bearer" and "Apikey" formats
+            // Default to "Bearer" format, but also support "Apikey" format
+            // Check if key starts with "Apikey " prefix
+            if (_softwareApiKey.StartsWith("Apikey ", StringComparison.OrdinalIgnoreCase))
+            {
+                var keyValue = _softwareApiKey.Substring(7); // Remove "Apikey " prefix
+                _httpClient.DefaultRequestHeaders.Authorization = 
+                    new AuthenticationHeaderValue("Apikey", keyValue);
+            }
+            else
+            {
+                // Default to Bearer format
+                _httpClient.DefaultRequestHeaders.Authorization = 
+                    new AuthenticationHeaderValue("Bearer", _softwareApiKey);
+            }
+        }
         
         _jsonOptions = new JsonSerializerOptions
         {
