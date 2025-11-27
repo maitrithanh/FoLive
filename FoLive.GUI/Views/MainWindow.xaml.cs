@@ -163,11 +163,15 @@ namespace FoLive.Views
         {
             try
             {
+                _logger?.LogInfo("RefreshStreamsListAsync: Bắt đầu refresh");
                 var allStreams = await _streamManager.GetAllStreamsAsync();
+                _logger?.LogInfo($"RefreshStreamsListAsync: Lấy được {allStreams.Count} stream(s) từ manager");
                 
                 // Update on UI thread
                 await Dispatcher.InvokeAsync(() =>
                 {
+                    _logger?.LogInfo($"RefreshStreamsListAsync: Hiện tại có {_streams.Count} stream(s) trong UI");
+                    
                     // Update existing view models or add new ones
                     var existingIds = _streams.Select(vm => vm.StreamId).ToHashSet();
                     var managerIds = allStreams.Select(s => s.StreamId).ToHashSet();
@@ -177,6 +181,7 @@ namespace FoLive.Views
                     foreach (var vm in toRemove)
                     {
                         _streams.Remove(vm);
+                        _logger?.LogInfo($"RefreshStreamsListAsync: Đã xóa stream '{vm.StreamId}' khỏi UI");
                     }
                     
                     // Update or add streams
@@ -188,18 +193,23 @@ namespace FoLive.Views
                         {
                             // Update existing view model
                             existingViewModel.Update(stream);
+                            _logger?.LogInfo($"RefreshStreamsListAsync: Đã cập nhật stream '{stream.StreamId}'");
                         }
                         else
                         {
                             // Add new view model
                             _streams.Add(new StreamViewModel(stream, index));
+                            _logger?.LogInfo($"RefreshStreamsListAsync: Đã thêm stream '{stream.StreamId}' vào UI");
                         }
                         index++;
                     }
+                    
+                    _logger?.LogInfo($"RefreshStreamsListAsync: Hoàn thành. UI hiện có {_streams.Count} stream(s)");
                 });
             }
             catch (Exception ex)
             {
+                _logger?.LogError($"Lỗi khi refresh streams list: {ex.Message}", ex);
                 await Dispatcher.InvokeAsync(() =>
                 {
                     MessageBox.Show($"Lỗi khi làm mới danh sách streams: {ex.Message}", "Lỗi", 
@@ -256,11 +266,24 @@ namespace FoLive.Views
             {
                 try
                 {
-                    await _streamManager.StartStreamAsync(viewModel.StreamId);
-                    StatusTextBlock.Text = $"Đang bắt đầu stream '{viewModel.StreamId}'...";
+                    _logger?.LogInfo($"Đang bắt đầu stream: {viewModel.StreamId}");
+                    var success = await _streamManager.StartStreamAsync(viewModel.StreamId);
+                    if (success)
+                    {
+                        StatusTextBlock.Text = $"Đang bắt đầu stream '{viewModel.StreamId}'...";
+                        _logger?.LogInfo($"Đã bắt đầu stream '{viewModel.StreamId}' thành công");
+                    }
+                    else
+                    {
+                        StatusTextBlock.Text = $"Không thể bắt đầu stream '{viewModel.StreamId}'";
+                        _logger?.LogWarning($"Không thể bắt đầu stream '{viewModel.StreamId}'");
+                        MessageBox.Show($"Không thể bắt đầu stream '{viewModel.StreamId}'. Có thể stream đã đang chạy hoặc có lỗi.", "Cảnh báo", 
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
+                    }
                 }
                 catch (Exception ex)
                 {
+                    _logger?.LogError($"Lỗi khi bắt đầu stream '{viewModel.StreamId}': {ex.Message}", ex);
                     MessageBox.Show($"Lỗi khi bắt đầu stream: {ex.Message}", "Lỗi", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
@@ -289,9 +312,80 @@ namespace FoLive.Views
             Close();
         }
 
+        private async void EditStream_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.DataContext is StreamViewModel viewModel)
+            {
+                try
+                {
+                    _logger?.LogInfo($"Đang sửa stream: {viewModel.StreamId}");
+                    var dialog = new AddStreamDialog(viewModel.Stream);
+                    if (dialog.ShowDialog() == true && dialog.CreatedStream != null)
+                    {
+                        var success = await _streamManager.UpdateStreamAsync(dialog.CreatedStream);
+                        if (success)
+                        {
+                            await RefreshStreamsListAsync();
+                            StatusTextBlock.Text = $"Đã cập nhật stream '{viewModel.StreamId}' thành công";
+                            _logger?.LogInfo($"Đã cập nhật stream '{viewModel.StreamId}' thành công");
+                        }
+                        else
+                        {
+                            MessageBox.Show($"Không tìm thấy stream với ID '{viewModel.StreamId}'", "Lỗi", 
+                                MessageBoxButton.OK, MessageBoxImage.Warning);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError($"Lỗi khi sửa stream: {ex.Message}", ex);
+                    MessageBox.Show($"Lỗi khi sửa stream: {ex.Message}", "Lỗi", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
+        private async void DeleteStream_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button button && button.DataContext is StreamViewModel viewModel)
+            {
+                try
+                {
+                    var result = MessageBox.Show(
+                        $"Bạn có chắc chắn muốn xóa stream '{viewModel.StreamId}'?",
+                        "Xác nhận xóa",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question);
+                    
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        _logger?.LogInfo($"Đang xóa stream: {viewModel.StreamId}");
+                        var success = await _streamManager.RemoveStreamAsync(viewModel.StreamId);
+                        if (success)
+                        {
+                            await RefreshStreamsListAsync();
+                            StatusTextBlock.Text = $"Đã xóa stream '{viewModel.StreamId}' thành công";
+                            _logger?.LogInfo($"Đã xóa stream '{viewModel.StreamId}' thành công");
+                        }
+                        else
+                        {
+                            MessageBox.Show($"Không tìm thấy stream với ID '{viewModel.StreamId}'", "Lỗi", 
+                                MessageBoxButton.OK, MessageBoxImage.Warning);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger?.LogError($"Lỗi khi xóa stream: {ex.Message}", ex);
+                    MessageBox.Show($"Lỗi khi xóa stream: {ex.Message}", "Lỗi", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+
         private void About_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("FoLive - Quản lý Stream\nPhiên bản 3.0.12", "Giới thiệu", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("FoLive - Quản lý Stream\nPhiên bản 3.0.13", "Giới thiệu", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         protected override void OnClosed(EventArgs e)

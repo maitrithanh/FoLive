@@ -13,10 +13,23 @@ namespace FoLive.Core.Services;
 public class FFmpegService
 {
     private readonly string _ffmpegPath;
+    private readonly LogService? _logger;
 
-    public FFmpegService()
+    public FFmpegService(LogService? logger = null)
     {
+        _logger = logger;
         _ffmpegPath = FindFFmpeg();
+        _logger?.LogInfo($"FFmpegService khởi tạo. FFmpeg path: {_ffmpegPath}");
+        
+        // Kiểm tra FFmpeg ngay khi khởi tạo
+        if (!CheckFFmpeg())
+        {
+            _logger?.LogWarning($"FFmpeg không được tìm thấy hoặc không thể chạy tại: {_ffmpegPath}");
+        }
+        else
+        {
+            _logger?.LogInfo($"FFmpeg đã được xác nhận hoạt động tại: {_ffmpegPath}");
+        }
     }
 
     private string FindFFmpeg()
@@ -83,23 +96,56 @@ public class FFmpegService
     {
         try
         {
-            var process = new Process
+            // Nếu _ffmpegPath là "ffmpeg" (từ PATH), thử chạy trực tiếp
+            if (_ffmpegPath == "ffmpeg" || _ffmpegPath == "ffmpeg.exe")
             {
-                StartInfo = new ProcessStartInfo
+                var process = new Process
                 {
-                    FileName = _ffmpegPath,
-                    Arguments = "-version",
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    CreateNoWindow = true
-                }
-            };
-            process.Start();
-            process.WaitForExit(2000);
-            return process.ExitCode == 0;
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "ffmpeg",
+                        Arguments = "-version",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                process.WaitForExit(3000);
+                var result = process.ExitCode == 0;
+                _logger?.LogInfo($"CheckFFmpeg (PATH): {result}");
+                return result;
+            }
+            
+            // Nếu là đường dẫn file cụ thể, kiểm tra file tồn tại
+            if (File.Exists(_ffmpegPath))
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = _ffmpegPath,
+                        Arguments = "-version",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        RedirectStandardError = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                process.WaitForExit(3000);
+                var result = process.ExitCode == 0;
+                _logger?.LogInfo($"CheckFFmpeg (file): {result} - {_ffmpegPath}");
+                return result;
+            }
+            
+            _logger?.LogWarning($"FFmpeg file không tồn tại: {_ffmpegPath}");
+            return false;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger?.LogError($"Lỗi khi kiểm tra FFmpeg: {ex.Message}", ex);
             return false;
         }
     }
@@ -328,11 +374,25 @@ public class FFmpegService
     {
         try
         {
+            _logger?.LogInfo($"Đang khởi động FFmpeg với command: {command}");
+            
             // Check if FFmpeg exists
-            if (string.IsNullOrEmpty(_ffmpegPath) || (!File.Exists(_ffmpegPath) && _ffmpegPath != "ffmpeg"))
+            if (string.IsNullOrEmpty(_ffmpegPath))
             {
-                throw new FileNotFoundException($"FFmpeg not found at: {_ffmpegPath}. Please ensure FFmpeg is installed and in your PATH.");
+                var errorMsg = "FFmpeg path trống. Vui lòng đảm bảo FFmpeg đã được cài đặt.";
+                _logger?.LogError(errorMsg);
+                throw new FileNotFoundException(errorMsg);
             }
+            
+            // Kiểm tra FFmpeg có thể chạy không
+            if (!CheckFFmpeg())
+            {
+                var errorMsg = $"FFmpeg không được tìm thấy hoặc không thể chạy tại: {_ffmpegPath}. Vui lòng đảm bảo FFmpeg đã được cài đặt và có trong PATH.";
+                _logger?.LogError(errorMsg);
+                throw new FileNotFoundException(errorMsg);
+            }
+            
+            _logger?.LogInfo($"FFmpeg đã được xác nhận tại: {_ffmpegPath}");
 
             var errorOutput = new StringBuilder();
             var outputData = new StringBuilder();
@@ -357,7 +417,7 @@ public class FFmpegService
                 if (!string.IsNullOrEmpty(e.Data))
                 {
                     errorOutput.AppendLine(e.Data);
-                    Console.WriteLine($"[FFmpeg Error] {e.Data}");
+                    _logger?.LogError($"[FFmpeg Error] {e.Data}");
                 }
             };
             
@@ -366,17 +426,17 @@ public class FFmpegService
                 if (!string.IsNullOrEmpty(e.Data))
                 {
                     outputData.AppendLine(e.Data);
-                    Console.WriteLine($"[FFmpeg Output] {e.Data}");
+                    _logger?.LogInfo($"[FFmpeg Output] {e.Data}");
                 }
             };
             
             process.Exited += (sender, e) =>
             {
-                Console.WriteLine($"[FFmpeg] Process exited with code: {process.ExitCode}");
+                _logger?.LogWarning($"[FFmpeg] Process exited with code: {process.ExitCode}");
             };
             
-            Console.WriteLine($"[FFmpeg] Starting process: {_ffmpegPath}");
-            Console.WriteLine($"[FFmpeg] Arguments: {command}");
+            _logger?.LogInfo($"[FFmpeg] Starting process: {_ffmpegPath}");
+            _logger?.LogInfo($"[FFmpeg] Arguments: {command}");
             
             process.Start();
             process.BeginErrorReadLine();
@@ -390,27 +450,31 @@ public class FFmpegService
                 var error = errorOutput.ToString();
                 var output = outputData.ToString();
                 
-                var errorMsg = $"FFmpeg exited with code {process.ExitCode}";
+                var errorMsg = $"FFmpeg thoát với mã lỗi {process.ExitCode}";
                 if (!string.IsNullOrEmpty(error))
                 {
-                    errorMsg += $"\nError output:\n{error}";
+                    errorMsg += $"\n\nLỗi:\n{error}";
                 }
                 if (!string.IsNullOrEmpty(output))
                 {
-                    errorMsg += $"\nStandard output:\n{output}";
+                    errorMsg += $"\n\nOutput:\n{output}";
                 }
                 
-                Console.WriteLine($"[FFmpeg] {errorMsg}");
+                _logger?.LogError($"[FFmpeg] {errorMsg}");
                 throw new Exception(errorMsg);
             }
             
-            Console.WriteLine($"[FFmpeg] Process started successfully. PID: {process.Id}");
+            _logger?.LogInfo($"[FFmpeg] Process started successfully. PID: {process.Id}");
             return process;
+        }
+        catch (FileNotFoundException ex)
+        {
+            _logger?.LogError($"FFmpeg không được tìm thấy: {ex.Message}", ex);
+            throw; // Re-throw để caller biết
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"[FFmpeg] Error starting FFmpeg: {ex.Message}");
-            Console.WriteLine($"[FFmpeg] Stack trace: {ex.StackTrace}");
+            _logger?.LogError($"Lỗi khi khởi động FFmpeg: {ex.Message}", ex);
             return null;
         }
     }

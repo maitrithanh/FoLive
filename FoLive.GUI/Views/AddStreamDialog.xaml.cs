@@ -9,10 +9,25 @@ namespace FoLive.Views
     public partial class AddStreamDialog : Window
     {
         public Stream? CreatedStream { get; private set; }
+        private Stream? _existingStream;
 
-        public AddStreamDialog()
+        public AddStreamDialog(Stream? existingStream = null)
         {
             InitializeComponent();
+            _existingStream = existingStream;
+            
+            // Nếu có existing stream, load data vào form
+            if (existingStream != null)
+            {
+                Title = "Sửa Stream";
+                TitleTextBlock.Text = "Sửa Stream";
+                LoadStreamData(existingStream);
+            }
+            else
+            {
+                Title = "Thêm Stream Mới";
+                TitleTextBlock.Text = "Thêm Stream Mới";
+            }
             
             // Wire up slider value changed events
             SpeedSlider.ValueChanged += (s, e) => SpeedValueText.Text = $"{SpeedSlider.Value:F1}x";
@@ -204,6 +219,80 @@ namespace FoLive.Views
         {
             DialogResult = false;
             Close();
+        }
+
+        private void LoadStreamData(Stream stream)
+        {
+            StreamIdTextBox.Text = stream.StreamId;
+            StreamIdTextBox.IsEnabled = false; // Không cho sửa ID khi edit
+            
+            // Set source type
+            var sourceTypeItems = new[] { "File", "YouTube", "Playlist", "Facebook", "URL (yt-dlp supported)", "Screen" };
+            var sourceTypeIndex = stream.SourceType.ToLower() switch
+            {
+                "youtube" => 1,
+                "playlist" => 2,
+                "facebook" => 3,
+                "url" => 4,
+                "screen" => 5,
+                _ => 0
+            };
+            SourceTypeComboBox.SelectedIndex = sourceTypeIndex;
+            
+            SourceTextBox.Text = stream.Source;
+            StreamUrlTextBox.Text = stream.StreamUrl;
+            StreamKeyTextBox.Text = stream.StreamKey;
+            
+            // Load config
+            if (stream.Config != null)
+            {
+                if (stream.Config.TryGetValue("loop", out var loop) && loop is bool loopValue)
+                    LoopCheckBox.IsChecked = loopValue;
+                
+                if (stream.Config.TryGetValue("useRender", out var useRender) && useRender is bool renderValue)
+                    UseRenderCheckBox.IsChecked = renderValue;
+                
+                if (stream.Config.TryGetValue("speed", out var speed) && speed is double speedValue)
+                    SpeedSlider.Value = speedValue;
+                
+                if (stream.Config.TryGetValue("volume", out var volume) && volume is double volumeValue)
+                    VolumeSlider.Value = volumeValue;
+                
+                if (stream.Config.TryGetValue("brightness", out var brightness) && brightness is double brightnessValue)
+                    BrightnessSlider.Value = brightnessValue;
+                
+                if (stream.Config.TryGetValue("textOverlay", out var textOverlay) && textOverlay is string textOverlayValue)
+                    TextOverlayTextBox.Text = textOverlayValue;
+                
+                if (stream.Config.TryGetValue("intro", out var intro) && intro is string introValue)
+                    IntroTextBox.Text = introValue;
+                
+                if (stream.Config.TryGetValue("outro", out var outro) && outro is string outroValue)
+                    OutroTextBox.Text = outroValue;
+                
+                if (stream.Config.TryGetValue("bitrate", out var bitrate) && bitrate is string bitrateValue)
+                    BitrateTextBox.Text = bitrateValue;
+                
+                // Load resolution
+                if (stream.Config.TryGetValue("width", out var width) && stream.Config.TryGetValue("height", out var height))
+                {
+                    var widthValue = width is int w ? w : 1280;
+                    var heightValue = height is int h ? h : 720;
+                    var resolution = $"{widthValue}x{heightValue}";
+                    
+                    var resolutionItems = new[] { "1920x1080", "1280x720", "854x480", "640x360", "Custom" };
+                    var resolutionIndex = Array.IndexOf(resolutionItems, resolution);
+                    if (resolutionIndex >= 0)
+                    {
+                        ResolutionComboBox.SelectedIndex = resolutionIndex;
+                    }
+                    else
+                    {
+                        ResolutionComboBox.SelectedIndex = 4; // Custom
+                        CustomResolutionTextBox.Text = resolution;
+                    }
+                }
+            }
         }
     }
 }

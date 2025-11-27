@@ -20,7 +20,7 @@ public class StreamManager
     public StreamManager(ConfigService? configService = null, LogService? logger = null)
     {
         _logger = logger;
-        _ffmpegService = new FFmpegService();
+        _ffmpegService = new FFmpegService(logger: _logger);
         _ytDlpService = new YtDlpService();
         _configService = configService ?? new ConfigService(logger: _logger);
     }
@@ -99,12 +99,16 @@ public class StreamManager
         {
             if (!_streams.TryGetValue(updatedStream.StreamId, out var existingStream))
             {
+                _logger?.LogWarning($"Không tìm thấy stream với ID '{updatedStream.StreamId}' để cập nhật");
                 return false;
             }
+
+            _logger?.LogInfo($"Đang cập nhật stream '{updatedStream.StreamId}'");
 
             // If stream is running, stop it first
             if (existingStream.Status == StreamStatus.Running)
             {
+                _logger?.LogInfo($"Stream '{updatedStream.StreamId}' đang chạy, đang dừng trước khi cập nhật...");
                 await StopStreamAsync(updatedStream.StreamId);
             }
 
@@ -121,7 +125,13 @@ public class StreamManager
 
             OnStreamStatusChanged(existingStream);
             await SaveConfigAsync();
+            _logger?.LogInfo($"Đã cập nhật stream '{updatedStream.StreamId}' thành công");
             return true;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError($"Lỗi khi cập nhật stream '{updatedStream.StreamId}': {ex.Message}", ex);
+            throw;
         }
         finally
         {
@@ -136,17 +146,25 @@ public class StreamManager
         {
             if (!_streams.TryGetValue(streamId, out var stream))
             {
+                _logger?.LogWarning($"Không tìm thấy stream với ID '{streamId}' để xóa");
                 return false;
             }
 
             if (stream.Status == StreamStatus.Running)
             {
+                _logger?.LogInfo($"Stream '{streamId}' đang chạy, đang dừng trước khi xóa...");
                 await StopStreamAsync(streamId);
             }
 
             _streams.Remove(streamId);
             await SaveConfigAsync();
+            _logger?.LogInfo($"Đã xóa stream '{streamId}' thành công");
             return true;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError($"Lỗi khi xóa stream '{streamId}': {ex.Message}", ex);
+            throw;
         }
         finally
         {
@@ -177,9 +195,11 @@ public class StreamManager
             stream.Status = StreamStatus.Starting;
             stream.ErrorMessage = null;
             OnStreamStatusChanged(stream);
+            _logger?.LogInfo($"Stream '{streamId}' đang chuyển sang trạng thái Starting");
 
             try
             {
+                _logger?.LogInfo($"Đang build FFmpeg command cho stream '{streamId}'");
                 // Build FFmpeg command
                 var command = await _ffmpegService.BuildStreamCommandAsync(
                     stream.Source,
@@ -193,23 +213,44 @@ public class StreamManager
                 if (string.IsNullOrEmpty(command))
                 {
                     stream.Status = StreamStatus.Error;
-                    stream.ErrorMessage = "Failed to build FFmpeg command. Please check your source and configuration.";
+                    stream.ErrorMessage = "Không thể build FFmpeg command. Vui lòng kiểm tra nguồn và cấu hình.";
                     OnStreamStatusChanged(stream);
+                    _logger?.LogError($"Không thể build FFmpeg command cho stream '{streamId}'");
                     return false;
                 }
 
                 // Log command for debugging
-                Console.WriteLine($"[StreamManager] Starting stream '{streamId}'");
-                Console.WriteLine($"[StreamManager] Command: {command}");
+                _logger?.LogInfo($"FFmpeg command cho stream '{streamId}': {command}");
 
                 // Start FFmpeg process
-                stream.Process = _ffmpegService.StartStream(command);
-                
-                if (stream.Process == null)
+                _logger?.LogInfo($"Đang khởi động FFmpeg process cho stream '{streamId}'");
+                try
+                {
+                    stream.Process = _ffmpegService.StartStream(command);
+                    
+                    if (stream.Process == null)
+                    {
+                        stream.Status = StreamStatus.Error;
+                        stream.ErrorMessage = "Không thể khởi động FFmpeg process. Vui lòng kiểm tra FFmpeg đã được cài đặt và có trong PATH.";
+                        OnStreamStatusChanged(stream);
+                        _logger?.LogError($"Không thể khởi động FFmpeg process cho stream '{streamId}' - StartStream trả về null");
+                        return false;
+                    }
+                }
+                catch (FileNotFoundException ex)
                 {
                     stream.Status = StreamStatus.Error;
-                    stream.ErrorMessage = "Failed to start FFmpeg process. Please check if FFmpeg is installed and accessible.";
+                    stream.ErrorMessage = $"FFmpeg không được tìm thấy: {ex.Message}\n\nVui lòng:\n1. Cài đặt FFmpeg\n2. Thêm FFmpeg vào PATH\n3. Hoặc đặt FFmpeg tại: C:\\ffmpeg\\bin\\ffmpeg.exe";
                     OnStreamStatusChanged(stream);
+                    _logger?.LogError($"FFmpeg không được tìm thấy cho stream '{streamId}': {ex.Message}", ex);
+                    return false;
+                }
+                catch (Exception ex)
+                {
+                    stream.Status = StreamStatus.Error;
+                    stream.ErrorMessage = $"Lỗi khi khởi động FFmpeg: {ex.Message}";
+                    OnStreamStatusChanged(stream);
+                    _logger?.LogError($"Lỗi khi khởi động FFmpeg cho stream '{streamId}': {ex.Message}", ex);
                     return false;
                 }
 
@@ -217,8 +258,9 @@ public class StreamManager
                 if (stream.Process.HasExited)
                 {
                     stream.Status = StreamStatus.Error;
-                    stream.ErrorMessage = $"FFmpeg process exited immediately with code {stream.Process.ExitCode}. Please check your stream URL and key.";
+                    stream.ErrorMessage = $"FFmpeg process thoát ngay lập tức với mã lỗi {stream.Process.ExitCode}. Vui lòng kiểm tra Stream URL và Key.";
                     OnStreamStatusChanged(stream);
+                    _logger?.LogError($"FFmpeg process thoát ngay với mã lỗi {stream.Process.ExitCode} cho stream '{streamId}'");
                     return false;
                 }
 
@@ -226,6 +268,7 @@ public class StreamManager
                 stream.StartTime = DateTime.Now;
                 stream.ErrorMessage = null;
                 OnStreamStatusChanged(stream);
+                _logger?.LogInfo($"Stream '{streamId}' đã bắt đầu chạy thành công");
 
                 // Monitor process
                 _ = Task.Run(async () => await MonitorStreamAsync(stream));

@@ -50,10 +50,12 @@
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
-                    <DataGridTemplateColumn Header="Thao tác" Width="150">
+                    <DataGridTemplateColumn Header="Thao tác" Width="300">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
+                                    <Button Content="Sửa" Click="EditStream_Click" Padding="5,2" Margin="2"/>
+                                    <Button Content="Xóa" Click="DeleteStream_Click" Padding="5,2" Margin="2"/>
                                     <Button Content="Bắt đầu" Click="StartStream_Click" Padding="5,2" Margin="2"/>
                                     <Button Content="Dừng" Click="StopStream_Click" Padding="5,2" Margin="2"/>
                                 </StackPanel>
