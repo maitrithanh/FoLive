@@ -19,17 +19,43 @@ namespace FoLive
             var softwareApiKey = configService.GetSoftwareApiKey();
             _authService = new AuthService(apiBaseUrl, softwareApiKey);
             
-            // Show login window first
-            var loginWindow = new LoginWindow(_authService);
-            if (loginWindow.ShowDialog() == true && loginWindow.AuthenticatedUser != null)
+            try
             {
-                // User authenticated successfully, show main window
-                var mainWindow = new MainWindow();
-                mainWindow.Show();
+                // Show login window first
+                var loginWindow = new LoginWindow(_authService);
+                var dialogResult = loginWindow.ShowDialog();
+                
+                if (dialogResult == true && loginWindow.AuthenticatedUser != null)
+                {
+                    // User authenticated successfully, show main window
+                    try
+                    {
+                        var mainWindow = new MainWindow();
+                        MainWindow = mainWindow; // Set as main window of application
+                        
+                        // Change shutdown mode to OnMainWindowClose so app closes when main window closes
+                        ShutdownMode = ShutdownMode.OnMainWindowClose;
+                        
+                        mainWindow.Show();
+                        mainWindow.Activate(); // Bring window to front
+                    }
+                    catch (Exception mainWindowEx)
+                    {
+                        MessageBox.Show($"Error creating main window: {mainWindowEx.Message}\n\n{mainWindowEx.StackTrace}", 
+                            "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+                        Shutdown();
+                    }
+                }
+                else
+                {
+                    // User cancelled login or authentication failed
+                    Shutdown();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                // User cancelled login or authentication failed
+                MessageBox.Show($"Error starting application: {ex.Message}\n\n{ex.StackTrace}", 
+                    "Startup Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown();
             }
         }
