@@ -1,7 +1,7 @@
 <Window x:Class="FoLive.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="FoLive - Stream Manager" 
+        Title="FoLive - Quản lý Stream" 
         Height="600" Width="1000"
         WindowStartupLocation="CenterScreen">
     <Grid>
@@ -12,13 +12,13 @@
         </Grid.RowDefinitions>
 
         <Menu Grid.Row="0">
-            <MenuItem Header="File">
-                <MenuItem Header="Add Stream" Click="AddStream_Click"/>
+            <MenuItem Header="Tệp">
+                <MenuItem Header="Thêm Stream" Click="AddStream_Click"/>
                 <Separator/>
-                <MenuItem Header="Exit" Click="Exit_Click"/>
+                <MenuItem Header="Thoát" Click="Exit_Click"/>
             </MenuItem>
-            <MenuItem Header="Help">
-                <MenuItem Header="About" Click="About_Click"/>
+            <MenuItem Header="Trợ giúp">
+                <MenuItem Header="Giới thiệu" Click="About_Click"/>
             </MenuItem>
         </Menu>
 
@@ -29,9 +29,9 @@
             </Grid.RowDefinitions>
 
             <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10">
-                <Button Content="Add Stream" Click="AddStream_Click" Padding="10,5" Margin="0,0,10,0"/>
-                <Button Content="Start All" Click="StartAll_Click" Padding="10,5" Margin="0,0,10,0"/>
-                <Button Content="Stop All" Click="StopAll_Click" Padding="10,5"/>
+                <Button Content="Thêm Stream" Click="AddStream_Click" Padding="10,5" Margin="0,0,10,0"/>
+                <Button Content="Bắt đầu tất cả" Click="StartAll_Click" Padding="10,5" Margin="0,0,10,0"/>
+                <Button Content="Dừng tất cả" Click="StopAll_Click" Padding="10,5"/>
             </StackPanel>
 
             <DataGrid x:Name="StreamsDataGrid" Grid.Row="1" 
@@ -41,21 +41,21 @@
                       SelectionMode="Single">
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="ID" Binding="{Binding StreamId}" Width="100"/>
-                    <DataGridTextColumn Header="Source Type" Binding="{Binding SourceDisplay}" Width="150"/>
-                    <DataGridTextColumn Header="Source" Binding="{Binding Stream.Source}" Width="*"/>
-                    <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="150">
+                    <DataGridTextColumn Header="Loại nguồn" Binding="{Binding SourceDisplay}" Width="150"/>
+                    <DataGridTextColumn Header="Nguồn" Binding="{Binding Stream.Source}" Width="*"/>
+                    <DataGridTextColumn Header="Trạng thái" Binding="{Binding StatusDisplay}" Width="150">
                         <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="Foreground" Value="{Binding StatusColor}"/>
                             </Style>
                         </DataGridTextColumn.ElementStyle>
                     </DataGridTextColumn>
-                    <DataGridTemplateColumn Header="Actions" Width="150">
+                    <DataGridTemplateColumn Header="Thao tác" Width="150">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
                                 <StackPanel Orientation="Horizontal">
-                                    <Button Content="Start" Click="StartStream_Click" Padding="5,2" Margin="2"/>
-                                    <Button Content="Stop" Click="StopStream_Click" Padding="5,2" Margin="2"/>
+                                    <Button Content="Bắt đầu" Click="StartStream_Click" Padding="5,2" Margin="2"/>
+                                    <Button Content="Dừng" Click="StopStream_Click" Padding="5,2" Margin="2"/>
                                 </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -66,7 +66,7 @@
 
         <StatusBar Grid.Row="2">
             <StatusBarItem>
-                <TextBlock x:Name="StatusTextBlock" Text="Ready"/>
+                <TextBlock x:Name="StatusTextBlock" Text="Sẵn sàng"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>

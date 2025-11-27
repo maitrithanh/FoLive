@@ -15,12 +15,14 @@ public class StreamManager
     private readonly FFmpegService _ffmpegService;
     private readonly YtDlpService _ytDlpService;
     private readonly ConfigService _configService;
+    private readonly LogService? _logger;
 
-    public StreamManager(ConfigService? configService = null)
+    public StreamManager(ConfigService? configService = null, LogService? logger = null)
     {
+        _logger = logger;
         _ffmpegService = new FFmpegService();
         _ytDlpService = new YtDlpService();
-        _configService = configService ?? new ConfigService();
+        _configService = configService ?? new ConfigService(logger: _logger);
     }
 
     public event EventHandler<StreamEventArgs>? StreamStatusChanged;

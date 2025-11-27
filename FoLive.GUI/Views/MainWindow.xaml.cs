@@ -17,12 +17,19 @@ namespace FoLive.Views
         private readonly ObservableCollection<StreamViewModel> _streams;
         private System.Windows.Threading.DispatcherTimer? _refreshTimer;
 
+        private readonly LogService _logger;
+
         public MainWindow()
         {
             InitializeComponent();
-            _streamManager = new StreamManager();
+            _logger = new LogService();
+            _streamManager = new StreamManager(logger: _logger);
             _streams = new ObservableCollection<StreamViewModel>();
             StreamsDataGrid.ItemsSource = _streams;
+            
+            // Log startup
+            _logger.LogInfo("FoLive application started");
+            _logger.LogInfo($"Log file: {_logger.GetLogPath()}");
 
             // Subscribe to stream status changes
             _streamManager.StreamStatusChanged += StreamManager_StreamStatusChanged;
@@ -43,14 +50,12 @@ namespace FoLive.Views
         {
             await LoadStreamsAsync();
             
-            // Show config file path in status bar
-            var configService = new ConfigService();
-            var configPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "FoLive",
-                "config.json"
-            );
-            StatusTextBlock.Text = $"Config: {configPath} | {_streams.Count} stream(s) loaded";
+            // Show config file path and log path in status bar
+            var configService = new ConfigService(logger: _logger);
+            var configPath = configService.GetConfigPath();
+            var logPath = _logger.GetLogPath();
+            StatusTextBlock.Text = $"Config: {configPath} | Log: {logPath} | Đã tải {_streams.Count} stream(s)";
+            _logger.LogInfo($"Đã tải {_streams.Count} stream(s) từ config");
         }
 
         private async Task LoadStreamsAsync()
@@ -67,11 +72,11 @@ namespace FoLive.Views
                     _streams.Add(new StreamViewModel(stream, index++));
                 }
 
-                StatusTextBlock.Text = $"Loaded {_streams.Count} stream(s)";
+                StatusTextBlock.Text = $"Đã tải {_streams.Count} stream(s)";
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error loading streams: {ex.Message}", "Error", 
+                MessageBox.Show($"Lỗi khi tải streams: {ex.Message}", "Lỗi", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
@@ -104,22 +109,47 @@ namespace FoLive.Views
             {
                 try
                 {
+                    _logger?.LogInfo($"Đang thêm stream: {dialog.CreatedStream.StreamId}");
                     var success = await _streamManager.AddStreamAsync(dialog.CreatedStream);
                     if (success)
                     {
                         // Reload streams from manager to ensure sync
                         await RefreshStreamsListAsync();
-                        StatusTextBlock.Text = $"Stream '{dialog.CreatedStream.StreamId}' added successfully";
+                        
+                        // Show config path in status
+                        var configService = new ConfigService(logger: _logger);
+                        var configPath = configService.GetConfigPath();
+                        StatusTextBlock.Text = $"Đã thêm stream '{dialog.CreatedStream.StreamId}' thành công | Config: {configPath}";
+                        _logger?.LogInfo($"Đã thêm stream '{dialog.CreatedStream.StreamId}' thành công");
                     }
                     else
                     {
-                        MessageBox.Show($"Stream with ID '{dialog.CreatedStream.StreamId}' already exists.", 
-                            "Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        var errorMsg = $"Stream với ID '{dialog.CreatedStream.StreamId}' đã tồn tại. Vui lòng chọn ID khác.";
+                        _logger?.LogWarning(errorMsg);
+                        MessageBox.Show(errorMsg, "Lỗi", 
+                            MessageBoxButton.OK, MessageBoxImage.Warning);
                     }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error adding stream: {ex.Message}", "Error", 
+                    var errorMsg = $"Lỗi khi thêm stream: {ex.Message}";
+                    if (ex.InnerException != null)
+                    {
+                        errorMsg += $"\n\nChi tiết: {ex.InnerException.Message}";
+                    }
+                    _logger?.LogError(errorMsg, ex);
+                    
+                    var configService = new ConfigService(logger: _logger);
+                    var configPath = configService.GetConfigPath();
+                    var logPath = _logger?.GetLogPath();
+                    
+                    var fullErrorMsg = $"{errorMsg}\n\nĐường dẫn config: {configPath}";
+                    if (!string.IsNullOrEmpty(logPath))
+                    {
+                        fullErrorMsg += $"\nĐường dẫn log: {logPath}";
+                    }
+                    
+                    MessageBox.Show(fullErrorMsg, "Lỗi", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -168,7 +198,7 @@ namespace FoLive.Views
             {
                 await Dispatcher.InvokeAsync(() =>
                 {
-                    MessageBox.Show($"Error refreshing streams: {ex.Message}", "Error", 
+                    MessageBox.Show($"Lỗi khi làm mới danh sách streams: {ex.Message}", "Lỗi", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 });
             }
@@ -186,12 +216,12 @@ namespace FoLive.Views
                     await _streamManager.StartStreamAsync(stream.StreamId);
                 }
 
-                StatusTextBlock.Text = $"Starting {streamsToStart.Count} stream(s)...";
+                StatusTextBlock.Text = $"Đang bắt đầu {streamsToStart.Count} stream(s)...";
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error starting streams: {ex.Message}", "Error", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Lỗi khi bắt đầu streams: {ex.Message}", "Lỗi", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -207,12 +237,12 @@ namespace FoLive.Views
                     await _streamManager.StopStreamAsync(stream.StreamId);
                 }
 
-                StatusTextBlock.Text = $"Stopping {streamsToStop.Count} stream(s)...";
+                StatusTextBlock.Text = $"Đang dừng {streamsToStop.Count} stream(s)...";
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error stopping streams: {ex.Message}", "Error", 
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show($"Lỗi khi dừng streams: {ex.Message}", "Lỗi", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }
 
@@ -223,11 +253,11 @@ namespace FoLive.Views
                 try
                 {
                     await _streamManager.StartStreamAsync(viewModel.StreamId);
-                    StatusTextBlock.Text = $"Starting stream '{viewModel.StreamId}'...";
+                    StatusTextBlock.Text = $"Đang bắt đầu stream '{viewModel.StreamId}'...";
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error starting stream: {ex.Message}", "Error", 
+                    MessageBox.Show($"Lỗi khi bắt đầu stream: {ex.Message}", "Lỗi", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -240,11 +270,11 @@ namespace FoLive.Views
                 try
                 {
                     await _streamManager.StopStreamAsync(viewModel.StreamId);
-                    StatusTextBlock.Text = $"Stopping stream '{viewModel.StreamId}'...";
+                    StatusTextBlock.Text = $"Đang dừng stream '{viewModel.StreamId}'...";
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Error stopping stream: {ex.Message}", "Error", 
+                    MessageBox.Show($"Lỗi khi dừng stream: {ex.Message}", "Lỗi", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
             }
@@ -257,7 +287,7 @@ namespace FoLive.Views
 
         private void About_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("FoLive - Stream Manager\nVersion 3.0.9", "About", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("FoLive - Quản lý Stream\nPhiên bản 3.0.10", "Giới thiệu", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         protected override void OnClosed(EventArgs e)

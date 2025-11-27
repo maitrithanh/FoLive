@@ -14,8 +14,9 @@ public class ConfigService
 {
     private readonly string _configPath;
     private readonly JsonSerializerOptions _jsonOptions;
+    private readonly LogService? _logger;
 
-    public ConfigService(string? configPath = null)
+    public ConfigService(string? configPath = null, LogService? logger = null)
     {
         _configPath = configPath ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -23,12 +24,22 @@ public class ConfigService
             "config.json"
         );
         
+        _logger = logger;
+        
         _jsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
         };
+    }
+
+    /// <summary>
+    /// Gets the config file path
+    /// </summary>
+    public string GetConfigPath()
+    {
+        return _configPath;
     }
 
     public async Task<List<StreamConfig>> LoadStreamsAsync()
@@ -51,7 +62,7 @@ public class ConfigService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error loading config: {ex.Message}");
+            _logger?.LogError($"Error loading config: {ex.Message}", ex);
             return new List<StreamConfig>();
         }
     }
@@ -76,14 +87,20 @@ public class ConfigService
             if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
+                _logger?.LogInfo($"Created directory: {directory}");
             }
 
             var json = JsonSerializer.Serialize(configs, _jsonOptions);
             await File.WriteAllTextAsync(_configPath, json);
+            _logger?.LogInfo($"Saved config to: {_configPath}");
+            _logger?.LogInfo($"Saved {configs.Count} stream(s)");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error saving config: {ex.Message}");
+            var errorMsg = $"Error saving config to {_configPath}: {ex.Message}";
+            _logger?.LogError(errorMsg, ex);
+            // Don't throw - log the error but don't break the flow
+            // The caller can check if file exists to verify save was successful
         }
     }
 

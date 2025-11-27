@@ -74,28 +74,28 @@ namespace FoLive.Views
                 // Validate inputs
                 if (string.IsNullOrWhiteSpace(StreamIdTextBox.Text))
                 {
-                    MessageBox.Show("Please enter a Stream ID.", "Validation Error", 
+                    MessageBox.Show("Vui lòng nhập Stream ID.", "Lỗi xác thực", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(SourceTextBox.Text))
                 {
-                    MessageBox.Show("Please enter a source (file path or URL).", "Validation Error", 
+                    MessageBox.Show("Vui lòng nhập nguồn (đường dẫn file hoặc URL).", "Lỗi xác thực", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(StreamUrlTextBox.Text))
                 {
-                    MessageBox.Show("Please enter a Stream URL.", "Validation Error", 
+                    MessageBox.Show("Vui lòng nhập Stream URL.", "Lỗi xác thực", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(StreamKeyTextBox.Text))
                 {
-                    MessageBox.Show("Please enter a Stream Key.", "Validation Error", 
+                    MessageBox.Show("Vui lòng nhập Stream Key.", "Lỗi xác thực", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -190,7 +190,12 @@ namespace FoLive.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error creating stream: {ex.Message}", "Error", 
+                var errorMsg = $"Lỗi khi tạo stream: {ex.Message}";
+                if (ex.InnerException != null)
+                {
+                    errorMsg += $"\n\nChi tiết: {ex.InnerException.Message}";
+                }
+                MessageBox.Show(errorMsg, "Lỗi", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
             }
         }

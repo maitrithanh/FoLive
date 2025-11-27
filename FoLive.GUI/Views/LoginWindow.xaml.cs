@@ -25,14 +25,14 @@ namespace FoLive.Views
 
                 if (string.IsNullOrWhiteSpace(email))
                 {
-                    MessageBox.Show("Please enter your email address.", "Validation Error", 
+                    MessageBox.Show("Vui lòng nhập địa chỉ email của bạn.", "Lỗi xác thực", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(password))
                 {
-                    MessageBox.Show("Please enter your password.", "Validation Error", 
+                    MessageBox.Show("Vui lòng nhập mật khẩu của bạn.", "Lỗi xác thực", 
                         MessageBoxButton.OK, MessageBoxImage.Warning);
                     return;
                 }
@@ -44,7 +44,7 @@ namespace FoLive.Views
                 if (loginButton != null)
                 {
                     loginButton.IsEnabled = false;
-                    loginButton.Content = "Logging in...";
+                    loginButton.Content = "Đang đăng nhập...";
                 }
 
                 var response = await _authService.LoginAsync(email, password);
@@ -57,7 +57,7 @@ namespace FoLive.Views
                 }
                 else
                 {
-                    MessageBox.Show("Invalid email or password. Please try again.", "Login Failed", 
+                    MessageBox.Show("Email hoặc mật khẩu không đúng. Vui lòng thử lại.", "Đăng nhập thất bại", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                     
                     // Re-enable UI
@@ -66,13 +66,13 @@ namespace FoLive.Views
                     if (loginButton != null)
                     {
                         loginButton.IsEnabled = true;
-                        loginButton.Content = "Login";
+                        loginButton.Content = "Đăng nhập";
                     }
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Login failed: {ex.Message}", "Error", 
+                MessageBox.Show($"Đăng nhập thất bại: {ex.Message}", "Lỗi", 
                     MessageBoxButton.OK, MessageBoxImage.Error);
                 
                 // Re-enable UI
