@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
@@ -41,6 +42,15 @@ namespace FoLive.Views
         private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
         {
             await LoadStreamsAsync();
+            
+            // Show config file path in status bar
+            var configService = new ConfigService();
+            var configPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "FoLive",
+                "config.json"
+            );
+            StatusTextBlock.Text = $"Config: {configPath} | {_streams.Count} stream(s) loaded";
         }
 
         private async Task LoadStreamsAsync()
@@ -97,9 +107,8 @@ namespace FoLive.Views
                     var success = await _streamManager.AddStreamAsync(dialog.CreatedStream);
                     if (success)
                     {
-                        // Add to UI
-                        var viewModel = new StreamViewModel(dialog.CreatedStream, _streams.Count);
-                        _streams.Add(viewModel);
+                        // Reload streams from manager to ensure sync
+                        await RefreshStreamsListAsync();
                         StatusTextBlock.Text = $"Stream '{dialog.CreatedStream.StreamId}' added successfully";
                     }
                     else
@@ -113,6 +122,55 @@ namespace FoLive.Views
                     MessageBox.Show($"Error adding stream: {ex.Message}", "Error", 
                         MessageBoxButton.OK, MessageBoxImage.Error);
                 }
+            }
+        }
+
+        private async Task RefreshStreamsListAsync()
+        {
+            try
+            {
+                var allStreams = await _streamManager.GetAllStreamsAsync();
+                
+                // Update on UI thread
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    // Update existing view models or add new ones
+                    var existingIds = _streams.Select(vm => vm.StreamId).ToHashSet();
+                    var managerIds = allStreams.Select(s => s.StreamId).ToHashSet();
+                    
+                    // Remove streams that no longer exist in manager
+                    var toRemove = _streams.Where(vm => !managerIds.Contains(vm.StreamId)).ToList();
+                    foreach (var vm in toRemove)
+                    {
+                        _streams.Remove(vm);
+                    }
+                    
+                    // Update or add streams
+                    int index = 0;
+                    foreach (var stream in allStreams)
+                    {
+                        var existingViewModel = _streams.FirstOrDefault(vm => vm.StreamId == stream.StreamId);
+                        if (existingViewModel != null)
+                        {
+                            // Update existing view model
+                            existingViewModel.Update(stream);
+                        }
+                        else
+                        {
+                            // Add new view model
+                            _streams.Add(new StreamViewModel(stream, index));
+                        }
+                        index++;
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                await Dispatcher.InvokeAsync(() =>
+                {
+                    MessageBox.Show($"Error refreshing streams: {ex.Message}", "Error", 
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                });
             }
         }
 
@@ -199,7 +257,7 @@ namespace FoLive.Views
 
         private void About_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("FoLive - Stream Manager\nVersion 3.0.8", "About", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("FoLive - Stream Manager\nVersion 3.0.9", "About", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         protected override void OnClosed(EventArgs e)
