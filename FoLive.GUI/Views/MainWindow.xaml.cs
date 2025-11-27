@@ -291,7 +291,7 @@ namespace FoLive.Views
 
         private void About_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("FoLive - Quản lý Stream\nPhiên bản 3.0.11", "Giới thiệu", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("FoLive - Quản lý Stream\nPhiên bản 3.0.12", "Giới thiệu", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         protected override void OnClosed(EventArgs e)
