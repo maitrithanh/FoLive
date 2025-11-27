@@ -48,15 +48,19 @@ public class StreamManager
     
     private async Task SaveConfigAsync()
     {
-        await _lock.WaitAsync();
+        // Don't lock here - caller should already have the lock
         try
         {
+            _logger?.LogInfo("Bắt đầu lưu config...");
             var streams = _streams.Values.ToList();
+            _logger?.LogInfo($"Đang lưu {streams.Count} stream(s) vào config");
             await _configService.SaveStreamsAsync(streams);
+            _logger?.LogInfo("Đã lưu config thành công");
         }
-        finally
+        catch (Exception ex)
         {
-            _lock.Release();
+            _logger?.LogError($"Lỗi khi lưu config: {ex.Message}", ex);
+            throw;
         }
     }
 
@@ -67,13 +71,20 @@ public class StreamManager
         {
             if (_streams.ContainsKey(stream.StreamId))
             {
+                _logger?.LogWarning($"Stream với ID '{stream.StreamId}' đã tồn tại");
                 return false;
             }
 
             _streams[stream.StreamId] = stream;
             OnStreamStatusChanged(stream);
             await SaveConfigAsync();
+            _logger?.LogInfo($"Đã thêm stream '{stream.StreamId}' thành công vào StreamManager");
             return true;
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError($"Lỗi khi thêm stream '{stream.StreamId}': {ex.Message}", ex);
+            throw;
         }
         finally
         {

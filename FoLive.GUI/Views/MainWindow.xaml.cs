@@ -110,7 +110,11 @@ namespace FoLive.Views
                 try
                 {
                     _logger?.LogInfo($"Đang thêm stream: {dialog.CreatedStream.StreamId}");
+                    _logger?.LogInfo($"Stream details - Source: {dialog.CreatedStream.Source}, Type: {dialog.CreatedStream.SourceType}");
+                    
                     var success = await _streamManager.AddStreamAsync(dialog.CreatedStream);
+                    _logger?.LogInfo($"AddStreamAsync returned: {success}");
+                    
                     if (success)
                     {
                         // Reload streams from manager to ensure sync
@@ -287,7 +291,7 @@ namespace FoLive.Views
 
         private void About_Click(object sender, RoutedEventArgs e)
         {
-            MessageBox.Show("FoLive - Quản lý Stream\nPhiên bản 3.0.10", "Giới thiệu", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show("FoLive - Quản lý Stream\nPhiên bản 3.0.11", "Giới thiệu", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         protected override void OnClosed(EventArgs e)

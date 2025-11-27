@@ -32,6 +32,35 @@ public class ConfigService
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             Converters = { new System.Text.Json.Serialization.JsonStringEnumConverter() }
         };
+        
+        // Tạo file config.json ngay khi khởi tạo nếu chưa tồn tại
+        InitializeConfigFile();
+    }
+
+    private void InitializeConfigFile()
+    {
+        try
+        {
+            // Đảm bảo thư mục tồn tại
+            var directory = Path.GetDirectoryName(_configPath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+                _logger?.LogInfo($"Đã tạo thư mục config: {directory}");
+            }
+
+            // Tạo file config.json nếu chưa tồn tại (file rỗng với array rỗng)
+            if (!File.Exists(_configPath))
+            {
+                var emptyConfig = "[]";
+                File.WriteAllText(_configPath, emptyConfig);
+                _logger?.LogInfo($"Đã tạo file config.json: {_configPath}");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError($"Lỗi khi khởi tạo file config: {ex.Message}", ex);
+        }
     }
 
     /// <summary>
@@ -46,23 +75,31 @@ public class ConfigService
     {
         try
         {
+            // Đảm bảo file tồn tại (nếu chưa có thì đã được tạo trong constructor)
             if (!File.Exists(_configPath))
             {
+                _logger?.LogWarning($"File config không tồn tại: {_configPath}");
+                InitializeConfigFile(); // Tạo lại nếu bị xóa
                 return new List<StreamConfig>();
             }
 
+            _logger?.LogInfo($"Đang đọc config từ: {_configPath}");
             var json = await File.ReadAllTextAsync(_configPath);
-            if (string.IsNullOrWhiteSpace(json))
+            
+            if (string.IsNullOrWhiteSpace(json) || json.Trim() == "[]")
             {
+                _logger?.LogInfo("Config file rỗng hoặc không có stream nào");
                 return new List<StreamConfig>();
             }
 
             var configs = JsonSerializer.Deserialize<List<StreamConfig>>(json, _jsonOptions);
-            return configs ?? new List<StreamConfig>();
+            var result = configs ?? new List<StreamConfig>();
+            _logger?.LogInfo($"Đã tải {result.Count} stream(s) từ config");
+            return result;
         }
         catch (Exception ex)
         {
-            _logger?.LogError($"Error loading config: {ex.Message}", ex);
+            _logger?.LogError($"Lỗi khi đọc config: {ex.Message}", ex);
             return new List<StreamConfig>();
         }
     }
@@ -71,6 +108,16 @@ public class ConfigService
     {
         try
         {
+            _logger?.LogInfo($"SaveStreamsAsync: Bắt đầu lưu {streams.Count} stream(s)");
+            
+            // Đảm bảo file và thư mục tồn tại
+            var directory = Path.GetDirectoryName(_configPath);
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+            {
+                Directory.CreateDirectory(directory);
+                _logger?.LogInfo($"Đã tạo thư mục: {directory}");
+            }
+
             // Convert streams to configs (exclude runtime data)
             var configs = streams.Select(s => new StreamConfig
             {
@@ -82,25 +129,23 @@ public class ConfigService
                 Config = s.Config
             }).ToList();
 
-            // Ensure directory exists
-            var directory = Path.GetDirectoryName(_configPath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-            {
-                Directory.CreateDirectory(directory);
-                _logger?.LogInfo($"Created directory: {directory}");
-            }
+            _logger?.LogInfo($"SaveStreamsAsync: Đã convert {configs.Count} config(s)");
 
+            // Serialize và ghi file
+            _logger?.LogInfo($"SaveStreamsAsync: Đang serialize JSON...");
             var json = JsonSerializer.Serialize(configs, _jsonOptions);
+            _logger?.LogInfo($"SaveStreamsAsync: JSON length: {json.Length} characters");
+
+            _logger?.LogInfo($"SaveStreamsAsync: Đang ghi file: {_configPath}");
             await File.WriteAllTextAsync(_configPath, json);
-            _logger?.LogInfo($"Saved config to: {_configPath}");
-            _logger?.LogInfo($"Saved {configs.Count} stream(s)");
+            _logger?.LogInfo($"Đã lưu config thành công: {_configPath}");
+            _logger?.LogInfo($"Đã lưu {configs.Count} stream(s)");
         }
         catch (Exception ex)
         {
-            var errorMsg = $"Error saving config to {_configPath}: {ex.Message}";
+            var errorMsg = $"Lỗi khi lưu config vào {_configPath}: {ex.Message}";
             _logger?.LogError(errorMsg, ex);
-            // Don't throw - log the error but don't break the flow
-            // The caller can check if file exists to verify save was successful
+            throw; // Re-throw để caller biết có lỗi
         }
     }
 
