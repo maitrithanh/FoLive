@@ -2,7 +2,7 @@
 ; Inno Setup Script for creating professional Windows installer
 
 #define AppName "FoLive"
-#define AppVersion "1.0.0"
+#define AppVersion "3.0.8"
 #define AppPublisher "FoLive Team"
 #define AppURL "https://github.com/maitrithanh/FoLive"
 #define AppExeName "FoLive.exe"

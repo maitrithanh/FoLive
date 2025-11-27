@@ -7,6 +7,9 @@
     <UseWPF>true</UseWPF>
     <AssemblyName>FoLive</AssemblyName>
     <RootNamespace>FoLive</RootNamespace>
+    <Version>3.0.8</Version>
+    <AssemblyVersion>3.0.8.0</AssemblyVersion>
+    <FileVersion>3.0.8.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -40,10 +40,16 @@
                       CanUserDeleteRows="False"
                       SelectionMode="Single">
                 <DataGrid.Columns>
-                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="100"/>
-                    <DataGridTextColumn Header="Source Type" Binding="{Binding SourceType}" Width="120"/>
-                    <DataGridTextColumn Header="Source" Binding="{Binding Source}" Width="*"/>
-                    <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="100"/>
+                    <DataGridTextColumn Header="ID" Binding="{Binding StreamId}" Width="100"/>
+                    <DataGridTextColumn Header="Source Type" Binding="{Binding SourceDisplay}" Width="150"/>
+                    <DataGridTextColumn Header="Source" Binding="{Binding Stream.Source}" Width="*"/>
+                    <DataGridTextColumn Header="Status" Binding="{Binding StatusDisplay}" Width="150">
+                        <DataGridTextColumn.ElementStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="Foreground" Value="{Binding StatusColor}"/>
+                            </Style>
+                        </DataGridTextColumn.ElementStyle>
+                    </DataGridTextColumn>
                     <DataGridTemplateColumn Header="Actions" Width="150">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
